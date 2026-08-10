@@ -342,7 +342,6 @@ async function loadInstructorCourses() {
     console.log('[MyPage] course list response:', res.data)
 
     let courses = []
-
     if (Array.isArray(res.data?.data)) {
       courses = res.data.data
     } else if (Array.isArray(res.data)) {
@@ -351,28 +350,13 @@ async function loadInstructorCourses() {
       console.warn('[MyPage] unexpected course response shape:', res.data)
     }
 
-    console.log('[MyPage] auth.user =', auth.user)
-    console.log('[MyPage] courses =', courses)
-    console.log('[MyPage] first course =', courses[0])
-
-    courses.forEach(course => {
-      console.log('[MyPage] instructor fields check:', {
-        courseId: course.id,
-        instructorId: course.instructorId,
-        instructor_id: course.instructor_id,
-        instructor: course.instructor,
-        teacherId: course.teacherId,
-        teacher_id: course.teacher_id,
-        rawCourse: course
-      })
-    })
-
     const instructorId = Number(auth.user.id)
-
-    myCourses.value = courses.filter(course => {
-      const courseInstructorId = Number(getCourseInstructorId(course))
-      return !Number.isNaN(courseInstructorId) && courseInstructorId === instructorId
-    }).map(courseStore.normalizeCourse)
+    myCourses.value = courses
+      .filter(course => {
+        const courseInstructorId = Number(getCourseInstructorId(course))
+        return !Number.isNaN(courseInstructorId) && courseInstructorId === instructorId
+      })
+      .map(courseStore.normalizeCourse)
 
     console.log('[MyPage] filtered myCourses =', myCourses.value)
   } catch (error) {
