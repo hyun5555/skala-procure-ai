@@ -338,16 +338,25 @@ async function loadInstructorCourses() {
       return
     }
 
-    const res = await courseApi.getByInstructor(auth.user.id)
-    console.log('[MyPage] instructor course response:', res.data)
+    const res = await courseApi.getCourses()
+    console.log('[MyPage] course list response:', res.data)
 
-    const rawCourses = Array.isArray(res.data?.data)
-      ? res.data.data
-      : Array.isArray(res.data)
-        ? res.data
-        : []
+    let courses = []
+    if (Array.isArray(res.data?.data)) {
+      courses = res.data.data
+    } else if (Array.isArray(res.data)) {
+      courses = res.data
+    } else {
+      console.warn('[MyPage] unexpected course response shape:', res.data)
+    }
 
-    myCourses.value = rawCourses.map(courseStore.normalizeCourse)
+    const instructorId = Number(auth.user.id)
+    myCourses.value = courses
+      .filter(course => {
+        const courseInstructorId = Number(getCourseInstructorId(course))
+        return !Number.isNaN(courseInstructorId) && courseInstructorId === instructorId
+      })
+      .map(courseStore.normalizeCourse)
 
     console.log('[MyPage] filtered myCourses =', myCourses.value)
   } catch (error) {

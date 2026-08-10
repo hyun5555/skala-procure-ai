@@ -60,15 +60,6 @@ public class CourseService {
     }
 
     /**
-     * GET /courses/instructor/{instructorId} - 공급기업(강사)별 등록 품목 조회
-     */
-    public List<CourseDto.CourseResponse> getCoursesByInstructor(Long instructorId) {
-        return courseRepository.findByInstructorIdAndStatus(instructorId, Course.Status.ACTIVE).stream()
-                .map(CourseDto.CourseResponse::from)
-                .collect(Collectors.toList());
-    }
-
-    /**
      * 강의 존재 여부 확인 (Enrollment Service → Course Service REST 호출용)
      */
     public boolean existsCourse(Long id) {

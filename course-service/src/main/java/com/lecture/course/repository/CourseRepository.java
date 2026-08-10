@@ -13,9 +13,6 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     // 강사별 강의 조회
     List<Course> findByInstructorId(Long instructorId);
 
-    // 강사별 활성 강의 조회
-    List<Course> findByInstructorIdAndStatus(Long instructorId, Course.Status status);
-
     // 활성 강의 전체 조회
     List<Course> findByStatus(Course.Status status);
 
