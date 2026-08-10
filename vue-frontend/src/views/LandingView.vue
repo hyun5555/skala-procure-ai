@@ -1,293 +1,83 @@
 <template>
   <div class="landing">
     <AppHeader />
-
-    <!-- 히어로 섹션 -->
-    <section class="hero">
-      <div class="hero-inner">
-        <div class="hero-content fade-in-up">
-          <span class="hero-badge">MSA 기반 교육 플랫폼</span>
-          <h1 class="hero-title">배움을 더 스마트하게,<br>커리어를 더 빠르게</h1>
-          <p class="hero-desc">개발, 디자인, 비즈니스 분야의 전문가 강의를 수강하고 실력을 키워보세요.</p>
-          <div class="hero-actions">
-            <router-link to="/login" class="btn btn-primary btn-lg">무료로 시작하기</router-link>
-            <router-link to="/courses" class="btn btn-outline btn-lg">강의 둘러보기</router-link>
-          </div>
-          <div class="hero-stats">
-            <div class="stat"><span class="stat-num">1,200+</span><span class="stat-label">강의</span></div>
-            <div class="stat"><span class="stat-num">340+</span><span class="stat-label">강사</span></div>
-            <div class="stat"><span class="stat-num">28,000+</span><span class="stat-label">수강생</span></div>
-          </div>
-        </div>
-        <div class="hero-visual fade-in">
-          <img src="@/assets/images/logo/main_logo.png" alt="LearnNexus" class="hero-logo" />
-        </div>
-      </div>
-    </section>
-
-    <!-- 인기 강의 -->
-    <section class="popular-section">
-      <div class="section-inner">
-        <div class="section-header">
-          <h2 class="section-title">인기 강의</h2>
-          <router-link to="/login" class="section-link">전체 보기 →</router-link>
-        </div>
-        <div class="course-grid">
-          <div v-for="course in featuredCourses" :key="course.id" class="course-card-landing">
-            <div class="card-thumb" :class="course.thumbBg">
-              <img :src="course.thumbSrc" :alt="course.title" class="thumb-img" />
+    <main>
+      <section class="hero">
+        <div class="hero-inner">
+          <div class="hero-copy fade-in-up">
+            <span class="hero-badge"><i></i> 품질 데이터 기반 B2B 조달 플랫폼</span>
+            <h1>가격만 보던 조달에서,<br><em>품질까지 예측하는 조달</em>로.</h1>
+            <p>품명·규격·수량·예산·공급지역·납기 조건을 입력하면 8만여 건의 조달 품목 데이터로 공급업체를 비교하고 추천합니다.</p>
+            <div class="hero-actions">
+              <router-link to="/login" class="btn btn-primary btn-lg">공급기업 매칭 시작</router-link>
+              <a href="#flow" class="btn btn-outline btn-lg">서비스 흐름 보기</a>
             </div>
-            <div class="card-body">
-              <span class="badge" :class="course.badgeClass">{{ course.category }}</span>
-              <h3 class="card-title">{{ course.title }}</h3>
-              <div class="card-meta">
-                <span class="instructor">{{ course.instructor }}</span>
-                <span class="price">{{ course.price }}</span>
-              </div>
+            <div class="trust-row"><span>추천 기준</span><b>품목 적합도</b><b>등록 단가</b><b>납품일수</b><b>인증·MAS</b></div>
+          </div>
+          <div class="match-board fade-in">
+            <div class="board-top"><span>AI MATCH REPORT</span><small>실시간 조건 분석</small></div>
+            <div class="condition-tags"><span>파형강관</span><span>Φ300mm</span><span>전지역</span><span>30일</span></div>
+            <div v-for="(supplier,index) in suppliers" :key="supplier.name" class="supplier-row">
+              <b class="rank">0{{ index+1 }}</b><div><strong>{{ supplier.name }}</strong><small>{{ supplier.reason }}</small></div><em>{{ supplier.score }}<i>점</i></em>
             </div>
+            <div class="board-foot"><span>필수조건 충족 업체 3곳</span><b>조달 등록정보 반영 완료 ✓</b></div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- 특징 섹션 -->
-    <section class="features-section">
-      <div class="section-inner">
-        <h2 class="section-title center">왜 LearnNexus인가요?</h2>
-        <div class="features-grid">
-          <div v-for="f in features" :key="f.title" class="feature-card">
-            <div class="feature-icon">{{ f.icon }}</div>
-            <h3 class="feature-title">{{ f.title }}</h3>
-            <p class="feature-desc">{{ f.desc }}</p>
+      <section class="problem-section">
+        <div class="section-inner split-copy">
+          <div><span class="section-kicker">WHY PROCURIX</span><h2>가장 싼 업체가<br>가장 좋은 업체는 아닙니다.</h2></div>
+          <p>낮은 단가 뒤에 숨은 재검사·재작업·생산 지연 비용까지 고려해야 합니다. Procurix는 흩어진 가격, 납기, 품질 이력을 하나의 판단 기준으로 연결합니다.</p>
+        </div>
+        <div class="section-inner metric-grid">
+          <article v-for="metric in metrics" :key="metric.label"><span>{{ metric.icon }}</span><strong>{{ metric.value }}</strong><small>{{ metric.label }}</small><p>{{ metric.desc }}</p></article>
+        </div>
+      </section>
+
+      <section id="flow" class="flow-section">
+        <div class="section-inner">
+          <div class="section-heading"><span class="section-kicker">DATA FEEDBACK LOOP</span><h2>거래할수록 더 정확해지는 추천</h2><p>납품 이후의 품질 결과가 다음 조달의 더 나은 판단 근거가 됩니다.</p></div>
+          <div class="flow-grid">
+            <article v-for="(step,index) in flow" :key="step.title"><span class="flow-no">0{{ index+1 }}</span><div class="flow-icon">{{ step.icon }}</div><h3>{{ step.title }}</h3><p>{{ step.desc }}</p><i v-if="index<flow.length-1">→</i></article>
           </div>
+          <div class="feedback-banner"><span>QUALITY DATA</span><p><b>납품수량 · 불량수량 · 불량유형</b>이 공급업체 품질지표로 누적되고 다음 추천점수에 반영됩니다.</p><em>↻</em></div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- CTA -->
-    <section class="cta-section">
-      <div class="cta-inner">
-        <h2>지금 바로 시작하세요</h2>
-        <p>수천 명의 개발자들이 LearnNexus와 함께 성장하고 있습니다.</p>
-        <router-link to="/login" class="btn btn-primary btn-lg">무료로 시작하기</router-link>
-      </div>
-    </section>
-
-    <!-- 푸터 -->
-    <footer class="footer">
-      <div class="footer-inner">
-        <div class="footer-logo">
-          <img src="@/assets/images/logo/main_logo.png" alt="LearnNexus" />
-          <span>LearnNexus</span>
+      <section class="role-section">
+        <div class="section-inner role-grid">
+          <article><span class="role-label">BUYER</span><h2>구매기업</h2><p>복잡한 조달 조건을 한 번에 비교하고 추천 이유까지 확인해 일관된 발주 결정을 내립니다.</p><router-link to="/login">구매기업으로 시작 →</router-link></article>
+          <article class="supplier"><span class="role-label">SUPPLIER</span><h2>공급기업</h2><p>조달 품목과 납품조건, 실제 품질 성과를 데이터로 증명하고 조건이 맞는 신규 구매기업과 연결됩니다.</p><router-link to="/login">공급기업으로 등록 →</router-link></article>
         </div>
-        <p class="footer-copy">© 2026 LearnNexus. All rights reserved.</p>
-      </div>
-    </footer>
+      </section>
+    </main>
+    <footer><div class="section-inner"><b>PROCURIX</b><span>Quality data, better sourcing.</span><small>© 2026 SKALA Procurement Platform</small></div></footer>
   </div>
 </template>
 
 <script setup>
 import AppHeader from '@/components/AppHeader.vue'
-
-import springImg   from '@/assets/images/courses/spring_boot.png'
-import vueImg      from '@/assets/images/courses/vue_js.png'
-import k8sImg      from '@/assets/images/courses/kubernetes.png'
-import dockerImg   from '@/assets/images/courses/docker.png'
-import pythonImg   from '@/assets/images/courses/python.png'
-import genaiImg    from '@/assets/images/courses/generative_ai.png'
-
-const featuredCourses = [
-  { id:1, title:'Spring Boot MSA 완성', category:'백엔드',    instructor:'김강사', price:'₩89,000', thumbSrc: springImg, thumbBg:'thumb-teal',   badgeClass:'badge-teal'   },
-  { id:2, title:'Vue 3 실전 프로젝트',  category:'프론트엔드', instructor:'이강사', price:'₩69,000', thumbSrc: vueImg,    thumbBg:'thumb-teal',   badgeClass:'badge-teal'   },
-  { id:3, title:'Kubernetes 운영 가이드',category:'DevOps',   instructor:'박강사', price:'₩99,000', thumbSrc: k8sImg,    thumbBg:'thumb-blue',   badgeClass:'badge-blue'   },
-  { id:4, title:'Docker 컨테이너 실전', category:'DevOps',    instructor:'정강사', price:'₩79,000', thumbSrc: dockerImg, thumbBg:'thumb-blue',   badgeClass:'badge-blue'   },
-  { id:5, title:'Python 데이터 분석',   category:'데이터',    instructor:'최강사', price:'₩59,000', thumbSrc: pythonImg, thumbBg:'thumb-purple', badgeClass:'badge-purple' },
-  { id:6, title:'Generative AI 실전',   category:'AI',        instructor:'한강사', price:'₩75,000', thumbSrc: genaiImg,  thumbBg:'thumb-pink',   badgeClass:'badge-pink'   },
+const suppliers=[
+  {name:'남강철강 주식회사',score:95,reason:'30일 납품 · MAS 등록'},
+  {name:'영남산업 주식회사',score:91,reason:'전지역 공급 · KS 인증'},
+  {name:'주식회사 제철산업',score:87,reason:'예산 충족 · 우수제품'}
 ]
-
-const features = [
-  { icon:'🚀', title:'실무 중심 커리큘럼', desc:'현업 전문가가 직접 설계한 실무 중심 강의로 빠르게 성장하세요.' },
-  { icon:'🎯', title:'맞춤 강의 추천', desc:'AI 기반 추천 시스템이 수강 이력을 분석해 딱 맞는 강의를 추천합니다.' },
-  { icon:'💳', title:'간편한 수강 신청', desc:'원클릭 결제와 즉시 수강으로 학습을 바로 시작하세요.' },
-  { icon:'📱', title:'언제 어디서나', desc:'PC, 태블릿, 모바일 어디서든 끊김 없이 학습하세요.' },
+const metrics=[
+  {icon:'◎',value:'30',label:'품목 적합도',desc:'품명·세부품명·규격 키워드'},
+  {icon:'₩',value:'25',label:'가격 점수',desc:'수량과 총예산 대비 등록 단가'},
+  {icon:'◷',value:'20',label:'납기 점수',desc:'30~120일 등록 납품일수'},
+  {icon:'✓',value:'25',label:'조달 신뢰도',desc:'공급지역·인증·우수제품·MAS'}
+]
+const flow=[
+  {icon:'▦',title:'품목 등록',desc:'공급기업이 품목·단가·납품조건 등록'},
+  {icon:'⌕',title:'조건 분석',desc:'품명·규격·지역·납기로 후보 필터링'},
+  {icon:'AI',title:'추천 순위',desc:'가격·납기·인증·조달정보를 점수화'},
+  {icon:'↗',title:'발주·납품',desc:'추천 근거 확인 후 발주와 결제 진행'},
+  {icon:'✓',title:'품질 등록',desc:'납품수량·불량유형을 품질 데이터로 축적'}
 ]
 </script>
 
 <style scoped>
-.landing { background: var(--color-bg-secondary); }
-
-/* 히어로 */
-.hero {
-  background: linear-gradient(135deg, #f0f7ff 0%, #e8f4fd 50%, #f0f9ff 100%);
-  border-bottom: 1px solid var(--color-border);
-  padding: 80px 0 64px;
-}
-.hero-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 48px;
-  align-items: center;
-}
-.hero-badge {
-  display: inline-block;
-  padding: 5px 14px;
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
-.hero-title {
-  font-size: 42px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.5px;
-  color: var(--color-text-primary);
-  margin-bottom: 16px;
-}
-.hero-desc {
-  font-size: 16px;
-  color: var(--color-text-secondary);
-  line-height: 1.7;
-  max-width: 460px;
-  margin-bottom: 28px;
-}
-.hero-actions {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 40px;
-}
-.btn-lg { padding: 12px 28px; font-size: 15px; }
-.hero-stats {
-  display: flex;
-  gap: 36px;
-}
-.stat { display: flex; flex-direction: column; gap: 2px; }
-.stat-num { font-size: 22px; font-weight: 700; color: var(--color-primary); }
-.stat-label { font-size: 12px; color: var(--color-text-secondary); }
-.hero-visual {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.hero-logo {
-  width: 200px;
-  height: 200px;
-  object-fit: contain;
-  border-radius: 24px;
-  box-shadow: var(--shadow-lg);
-}
-
-/* 강의 섹션 */
-.popular-section { padding: 64px 0; }
-.section-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-.section-title { font-size: 22px; font-weight: 700; color: var(--color-text-primary); }
-.section-title.center { text-align: center; margin-bottom: 40px; }
-.section-link { font-size: 14px; color: var(--color-primary); font-weight: 500; }
-.section-link:hover { text-decoration: underline; }
-
-.course-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-.course-card-landing {
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  transition: var(--transition);
-}
-.course-card-landing:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-}
-.card-thumb {
-  height: 110px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-.thumb-teal   { background: #E1F5EE; }
-.thumb-blue   { background: #E6F1FB; }
-.thumb-purple { background: #EEEDFE; }
-.thumb-pink   { background: #FBEAF0; }
-.thumb-img { width: 100%; height: 100%; object-fit: contain; padding: 14px; }
-.card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
-.card-title { font-size: 14px; font-weight: 600; color: var(--color-text-primary); line-height: 1.4; }
-.card-meta { display: flex; justify-content: space-between; align-items: center; }
-.instructor { font-size: 12px; color: var(--color-text-secondary); }
-.price { font-size: 14px; font-weight: 600; color: var(--color-primary); }
-
-/* 특징 */
-.features-section { padding: 64px 0; background: var(--color-bg-primary); }
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-.feature-card {
-  padding: 28px 24px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  text-align: center;
-  transition: var(--transition);
-}
-.feature-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-.feature-icon { font-size: 32px; margin-bottom: 12px; }
-.feature-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
-.feature-desc { font-size: 13px; color: var(--color-text-secondary); line-height: 1.6; }
-
-/* CTA */
-.cta-section {
-  padding: 80px 0;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-  text-align: center;
-}
-.cta-inner { max-width: 600px; margin: 0 auto; padding: 0 24px; }
-.cta-inner h2 { font-size: 32px; font-weight: 700; color: #fff; margin-bottom: 12px; }
-.cta-inner p { font-size: 16px; color: rgba(255,255,255,0.8); margin-bottom: 32px; }
-.cta-inner .btn-primary {
-  background: #fff;
-  color: var(--color-primary);
-  border-color: #fff;
-  font-weight: 600;
-}
-.cta-inner .btn-primary:hover { background: #f0f7ff; }
-
-/* 푸터 */
-.footer {
-  background: var(--color-text-primary);
-  padding: 32px 0;
-}
-.footer-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.footer-logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-}
-.footer-logo img { width: 28px; height: 28px; border-radius: 6px; }
-.footer-copy { font-size: 13px; color: rgba(255,255,255,0.5); }
+.landing{background:#fff}.section-inner{max-width:1180px;margin:0 auto;padding-left:24px;padding-right:24px}.hero{background:linear-gradient(120deg,#f2f8f6 0%,#fff 65%);border-bottom:1px solid var(--color-border);overflow:hidden}.hero-inner{max-width:1180px;margin:0 auto;padding:88px 24px 84px;display:grid;grid-template-columns:1.08fr .92fr;gap:70px;align-items:center}.hero-badge{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--color-primary);letter-spacing:.04em}.hero-badge i{width:7px;height:7px;border-radius:50%;background:var(--color-secondary);box-shadow:0 0 0 4px #f9e9d9}.hero h1{font-size:48px;line-height:1.22;letter-spacing:-.055em;margin:18px 0}.hero h1 em{font-style:normal;color:var(--color-primary)}.hero-copy>p{max-width:610px;color:var(--color-text-secondary);font-size:16px;line-height:1.8}.hero-actions{display:flex;gap:10px;margin:28px 0}.btn-lg{padding:13px 21px}.trust-row{display:flex;align-items:center;gap:13px;flex-wrap:wrap;font-size:10px;color:var(--color-text-muted)}.trust-row span{padding-right:12px;border-right:1px solid var(--color-border)}.trust-row b{font-weight:600}.match-board{background:#173C37;color:#fff;border-radius:20px;padding:24px;box-shadow:0 24px 60px rgba(10,60,52,.22);position:relative}.match-board:before{content:'';position:absolute;inset:10px;border:1px solid rgba(255,255,255,.08);border-radius:14px;pointer-events:none}.board-top,.board-foot{display:flex;justify-content:space-between;align-items:center}.board-top span{font-size:11px;font-weight:800;letter-spacing:.16em}.board-top small{font-size:9px;color:#8dd7c8}.condition-tags{display:flex;gap:6px;flex-wrap:wrap;margin:20px 0 15px}.condition-tags span{font-size:9px;border:1px solid rgba(255,255,255,.16);border-radius:20px;padding:5px 9px;color:#cfe3df}.supplier-row{position:relative;display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.1)}.supplier-row .rank{font-size:10px;color:#77aa9f}.supplier-row div{display:flex;flex-direction:column;gap:3px}.supplier-row strong{font-size:13px}.supplier-row small{font-size:9px;color:#9eb7b2}.supplier-row em{font-size:23px;font-weight:800;color:#75d4c1;font-style:normal}.supplier-row em i{font-size:9px;font-style:normal;margin-left:2px}.board-foot{margin-top:12px;font-size:9px;color:#9eb7b2}.board-foot b{color:#f3b675}.problem-section{padding:86px 0;background:#fff}.split-copy{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:end}.section-kicker{display:block;font-size:10px;font-weight:800;letter-spacing:.16em;color:var(--color-primary);margin-bottom:10px}.split-copy h2,.section-heading h2{font-size:34px;line-height:1.35;letter-spacing:-.04em}.split-copy>p,.section-heading p{color:var(--color-text-secondary);font-size:14px;line-height:1.8}.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:38px}.metric-grid article{padding:24px;border:1px solid var(--color-border);border-radius:14px}.metric-grid article>span{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:var(--color-primary-light);color:var(--color-primary);font-weight:800}.metric-grid strong{display:block;font-size:30px;margin-top:18px}.metric-grid small{font-size:11px;font-weight:700;color:var(--color-primary)}.metric-grid p{font-size:11px;color:var(--color-text-muted);margin-top:8px}.flow-section{padding:86px 0;background:#f3f7f6}.section-heading{text-align:center}.section-heading p{margin-top:9px}.flow-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:44px}.flow-grid article{position:relative;padding:20px 18px;background:#fff;border:1px solid var(--color-border);border-radius:14px;min-height:190px}.flow-no{font-size:9px;color:var(--color-text-muted)}.flow-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--color-primary-light);color:var(--color-primary);font-size:13px;font-weight:800;margin:24px 0 14px}.flow-grid h3{font-size:14px}.flow-grid p{font-size:11px;color:var(--color-text-muted);line-height:1.6;margin-top:6px}.flow-grid article>i{position:absolute;right:-15px;top:50%;z-index:2;width:20px;height:20px;display:grid;place-items:center;background:#dfe9e6;border-radius:50%;color:var(--color-primary);font-size:10px;font-style:normal}.feedback-banner{margin-top:16px;padding:16px 20px;background:#173c37;color:#fff;border-radius:12px;display:flex;align-items:center;gap:20px}.feedback-banner>span{font-size:9px;letter-spacing:.15em;color:#75d4c1}.feedback-banner p{font-size:11px;color:#bed0cc;flex:1}.feedback-banner b{color:#fff}.feedback-banner em{font-style:normal;font-size:22px;color:#75d4c1}.role-section{padding:86px 0}.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.role-grid article{padding:38px;border-radius:18px;background:#eff7f5;border:1px solid #d8e9e4}.role-grid article.supplier{background:#fff6ed;border-color:#f5dfc9}.role-label{font-size:9px;letter-spacing:.16em;font-weight:800;color:var(--color-primary)}.role-grid h2{font-size:27px;margin:12px 0}.role-grid p{font-size:13px;color:var(--color-text-secondary);line-height:1.7;max-width:440px}.role-grid a{display:inline-block;margin-top:24px;color:var(--color-primary);font-size:12px;font-weight:700}footer{padding:28px 0;background:#122a27;color:#fff}footer .section-inner{display:flex;align-items:center;gap:18px}footer b{letter-spacing:.12em}footer span{font-size:11px;color:#93aaa6}footer small{margin-left:auto;color:#627b76;font-size:9px}@media(max-width:900px){.hero-inner{grid-template-columns:1fr;padding-top:60px}.split-copy{grid-template-columns:1fr;gap:20px}.metric-grid{grid-template-columns:repeat(2,1fr)}.flow-grid{grid-template-columns:1fr 1fr}.flow-grid article>i{display:none}}@media(max-width:600px){.hero-inner{padding:48px 16px}.hero h1{font-size:35px}.metric-grid,.role-grid,.flow-grid{grid-template-columns:1fr}.section-inner{padding-left:16px;padding-right:16px}.problem-section,.flow-section,.role-section{padding:60px 0}.feedback-banner{align-items:flex-start;flex-direction:column}footer .section-inner{align-items:flex-start;flex-direction:column}footer small{margin-left:0}}
 </style>

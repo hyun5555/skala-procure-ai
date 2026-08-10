@@ -1,419 +1,70 @@
 <template>
-  <div class="page-wrapper">
-    <AppHeader />
+  <div class="page-wrapper"><AppHeader />
+    <main v-if="course" class="main-content">
+      <router-link :to="backTarget" class="back-link">← {{ backLabel }}</router-link>
+      <section class="detail-grid">
+        <div>
+          <div class="title-row"><span class="material-badge">{{ course.category }}</span><span class="verified">✓ 조달 품목 등록</span></div>
+          <h1>{{ course.title }}</h1>
+          <p class="supplier-name">{{ displayInstructorName }} · 누적 거래 {{ displayEnrollmentCount }}건</p>
+          <div class="reason-box"><span>추천 근거</span><p>{{ recommendationReason }}</p></div>
 
-    <div class="detail-layout" v-if="course">
-      <div class="detail-hero">
-        <div class="detail-hero-inner">
-          <!-- 좌측 상세 정보 -->
-          <div class="detail-info fade-in-up">
-            <span class="badge" :class="badgeClass">{{ displayCategory }}</span>
-            <h1 class="detail-title">{{ course.title }}</h1>
-            <p class="detail-desc">
-              {{ course.description || '실무 전문가가 직접 설계한 커리큘럼으로 체계적으로 학습하세요.' }}
-            </p>
-
-            <div class="detail-meta">
-              <span>강사: {{ displayInstructorName }}</span>
-              <span>수강생: {{ displayEnrollmentCount }}명</span>
+          <section class="capability-section"><div class="section-heading"><h2>품목·납품 정보</h2><small>공급업체 CSV 데이터 기준</small></div>
+            <div class="spec-grid">
+              <article v-for="spec in specItems" :key="spec.label"><span>{{ spec.label }}</span><strong>{{ spec.value || '미등록' }}</strong></article>
             </div>
-          </div>
-
-          <!-- 우측 결제/수강 카드 -->
-          <div class="enroll-card fade-in">
-            <div class="enroll-thumb" :class="thumbBg">
-              <img v-if="thumbSrc" :src="thumbSrc" :alt="course.title" />
-            </div>
-
-            <div class="enroll-body">
-              <div class="enroll-price">₩{{ displayPrice }}</div>
-
-              <button
-                class="btn btn-primary btn-full"
-                @click="handlePrimaryAction"
-                :disabled="buttonDisabled"
-                :class="{ 'btn-disabled': buttonDisabled }"
-              >
-                <span v-if="enrolling">처리 중...</span>
-                <span v-else>{{ buttonLabel }}</span>
-              </button>
-
-              <div v-if="enrollError" class="error-msg">{{ enrollError }}</div>
-
-              <p class="helper-text" v-if="helperText">
-                {{ helperText }}
-              </p>
-
-              <ul class="enroll-info-list">
-                <li>✅ 즉시 수강 가능</li>
-                <li>✅ 평생 소장</li>
-                <li>✅ 수료증 발급</li>
-              </ul>
-            </div>
-          </div>
+          </section>
+          <section class="description-section"><h2>인증·조달 정보</h2><p>{{ detailText }}</p></section>
+          <section class="notice"><b>데이터 활용 안내</b><p>단가·납품일수·인증정보는 공급업체 등록 데이터 기준입니다. 실제 계약 전 최신 계약기간과 납품조건을 확인해 주세요. 거래 후 품질지표는 별도로 누적됩니다.</p></section>
         </div>
-      </div>
-    </div>
 
-    <div v-else-if="loading" class="loading-center">
-      <div class="spinner"></div>
-    </div>
-
-    <div v-else class="loading-center">
-      <p class="empty-text">강의 정보를 불러오지 못했습니다.</p>
-    </div>
+        <aside class="order-card">
+          <span class="card-label">REGISTERED UNIT PRICE</span><div class="price"><strong>{{ displayPrice }}</strong>원 <small>/ {{ specs.unit || '단위' }}</small></div>
+          <div class="order-summary"><div><span>결제 방식</span><b>발주 접수 후 자동 결제</b></div><div><span>주문 상태</span><b>{{ statusLabel }}</b></div></div>
+          <button class="btn btn-primary btn-full" @click="handlePrimaryAction" :disabled="buttonDisabled">{{ enrolling ? '처리 중...' : buttonLabel }}</button>
+          <p v-if="enrollError" class="error-msg">{{ enrollError }}</p><p class="helper-text">{{ helperText }}</p>
+          <ol class="process-list"><li><b>1</b>견적·발주 요청</li><li><b>2</b>결제 및 주문 확정</li><li><b>3</b>생산·납품</li><li><b>4</b>품질검사 데이터 반영</li></ol>
+        </aside>
+      </section>
+    </main>
+    <div v-else-if="loading" class="loading-center"><div class="spinner"></div></div>
+    <div v-else class="loading-center">조달 품목 정보를 불러오지 못했습니다.</div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed,onMounted,ref } from 'vue'
+import { useRoute,useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import { useCourseStore } from '@/store/course.js'
 import { enrollmentApi } from '@/api/enrollment.js'
 import { useAuthStore } from '@/store/auth.js'
-
-const route = useRoute()
-const router = useRouter()
-const courseStore = useCourseStore()
-const auth = useAuthStore()
-
-const enrolling = ref(false)
-const enrollError = ref('')
-const enrollmentStatus = ref('NONE') // NONE | PENDING | ACTIVE
-
-const course = computed(() => courseStore.selectedCourse)
-const loading = computed(() => courseStore.loading)
-const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
-
-// CourseCard.vue 와 같은 표다. 두 곳이 어긋나면 목록과 상세의 색이 달라진다.
-const categoryConfig = {
-  'SUS304': { badge: 'badge-teal', bg: 'thumb-teal', thumb: 'spring_boot' },
-  'SUS316': { badge: 'badge-teal', bg: 'thumb-teal', thumb: 'spring_boot' },
-  'AL6061': { badge: 'badge-blue', bg: 'thumb-blue', thumb: 'kubernetes' },
-  '탄소강': { badge: 'badge-blue', bg: 'thumb-blue', thumb: 'docker' },
-  '황동': { badge: 'badge-purple', bg: 'thumb-amber', thumb: 'python' },
-  '티타늄': { badge: 'badge-purple', bg: 'thumb-purple', thumb: 'vue_js' },
-  '엔지니어링플라스틱': { badge: 'badge-pink', bg: 'thumb-pink', thumb: 'generative_ai' },
-  '기타': { badge: 'badge-gray', bg: 'thumb-gray', thumb: 'python' },
-}
-
-const config = computed(() => categoryConfig[course.value?.category] || {})
-const badgeClass = computed(() => config.value.badge || 'badge-gray')
-const thumbBg = computed(() => config.value.bg || 'thumb-gray')
-
-const displayCategory = computed(() => course.value?.category || '-')
-
-const displayInstructorName = computed(() => {
-  return (
-    course.value?.instructorName ||
-    course.value?.teacherName ||
-    course.value?.instructor?.name ||
-    course.value?.instructor_name ||
-    course.value?.ownerName ||
-    '강사 정보 없음'
-  )
-})
-
-const displayEnrollmentCount = computed(() => {
-  const value = Number(
-    course.value?.enrollmentCount ??
-    course.value?.enrollment_count ??
-    0
-  )
-  return Number.isNaN(value) ? 0 : value.toLocaleString()
-})
-
-const displayPrice = computed(() => {
-  const value = Number(course.value?.price ?? 0)
-  return Number.isNaN(value) ? '0' : value.toLocaleString()
-})
-
-const thumbSrc = computed(() => {
-  const key = course.value?.thumbnail || config.value.thumb
-  if (!key) return null
-
-  try {
-    return new URL(`../assets/images/courses/${key}.png`, import.meta.url).href
-  } catch {
-    return null
-  }
-})
-
-const buttonLabel = computed(() => {
-  if (isInstructor.value) return '강사 계정은 신청 불가'
-  if (enrollmentStatus.value === 'ACTIVE') return '내 수강 목록으로 이동'
-  if (enrollmentStatus.value === 'PENDING') return '신청 완료 · 결제 처리 중'
-  return '결제하고 수강하기'
-})
-
-const buttonDisabled = computed(() => {
-  if (enrolling.value) return true
-  if (isInstructor.value) return true
-  if (enrollmentStatus.value === 'PENDING') return true
-  return false
-})
-
-const helperText = computed(() => {
-  if (isInstructor.value) {
-    return '강사 계정은 본인 강의를 수강 신청할 수 없습니다.'
-  }
-
-  if (enrollmentStatus.value === 'ACTIVE') {
-    return '이미 수강 중인 강의입니다. 내 수강 목록에서 바로 이어서 학습할 수 있습니다.'
-  }
-
-  if (enrollmentStatus.value === 'PENDING') {
-    return '수강 신청이 접수되었습니다. 결제/처리 상태가 반영되면 내 수강 목록에서 확인할 수 있습니다.'
-  }
-
-  return '결제를 진행하면 수강 신청이 함께 처리됩니다.'
-})
-
-async function loadEnrollmentStatus() {
-  if (!auth.user?.id || !course.value?.id || isInstructor.value) {
-    enrollmentStatus.value = 'NONE'
-    return
-  }
-
-  try {
-    const res = await enrollmentApi.getMyEnrollments()
-    console.log('[CourseDetail] my enrollments response =', res.data)
-
-    const enrollments = Array.isArray(res.data?.data)
-      ? res.data.data
-      : Array.isArray(res.data)
-        ? res.data
-        : []
-
-    const matched = enrollments.find(item => Number(item.courseId) === Number(course.value.id))
-
-    if (!matched) {
-      enrollmentStatus.value = 'NONE'
-      return
-    }
-
-    enrollmentStatus.value = matched.status === 'ACTIVE' ? 'ACTIVE' : 'PENDING'
-  } catch (e) {
-    console.error('[CourseDetail] failed to load enrollment status:', e)
-    enrollmentStatus.value = 'NONE'
-  }
-}
-
-async function handlePrimaryAction() {
-  enrollError.value = ''
-
-  if (!course.value?.id) {
-    enrollError.value = '강의 정보가 올바르지 않습니다.'
-    return
-  }
-
-  if (isInstructor.value) {
-    enrollError.value = '강사 계정은 본인 강의를 수강 신청할 수 없습니다.'
-    return
-  }
-
-  if (enrollmentStatus.value === 'ACTIVE') {
-    router.push('/enrollments')
-    return
-  }
-
-  if (enrollmentStatus.value === 'PENDING') {
-    return
-  }
-
-  enrolling.value = true
-
-  try {
-    await enrollmentApi.enroll(course.value.id)
-    enrollmentStatus.value = 'PENDING'
-  } catch (e) {
-    console.error('[CourseDetail] enroll failed:', e)
-    enrollError.value = e.response?.data?.message || '결제/수강 신청에 실패했습니다.'
-  } finally {
-    enrolling.value = false
-  }
-}
-
-onMounted(async () => {
-  await courseStore.fetchCourse(route.params.id)
-  console.log('[CourseDetail] selectedCourse =', courseStore.selectedCourse)
-  await loadEnrollmentStatus()
-})
-
-watch(
-  () => courseStore.selectedCourse,
-  async (value) => {
-    console.log('[CourseDetail] selectedCourse changed =', value)
-    if (value?.id) {
-      await loadEnrollmentStatus()
-    }
-  },
-  { deep: true }
-)
+import { parseCapability } from '@/utils/procurement.js'
+import { addDemoEnrollment, getDemoEnrollments } from '@/data/demo.js'
+const route=useRoute(),router=useRouter(),courseStore=useCourseStore(),auth=useAuthStore()
+const enrolling=ref(false),enrollError=ref(''),enrollmentStatus=ref('NONE')
+const course=computed(()=>courseStore.selectedCourse),loading=computed(()=>courseStore.loading),isInstructor=computed(()=>auth.user?.role==='INSTRUCTOR')
+const backTarget=computed(()=>isInstructor.value?'/mypage':'/courses')
+const backLabel=computed(()=>isInstructor.value?'품목 대시보드로 돌아가기':'매칭 결과로 돌아가기')
+const specs=computed(()=>parseCapability(course.value?.description))
+const displayInstructorName=computed(()=>course.value?.instructorName||course.value?.instructor?.name||'공급기업')
+const displayEnrollmentCount=computed(()=>Number(course.value?.enrollmentCount??course.value?.enrollment_count??0).toLocaleString())
+const displayPrice=computed(()=>Number(course.value?.price??0).toLocaleString())
+const specItems=computed(()=>[
+  {label:'품목명',value:specs.value.itemName},{label:'규격',value:specs.value.specification},{label:'단위',value:specs.value.unit},
+  {label:'공급업체 소재지',value:specs.value.location},{label:'납품일수',value:specs.value.deliveryDays},{label:'공급지역',value:specs.value.supplyRegion}
+])
+const detailText=computed(()=>[specs.value.certification&&`인증: ${specs.value.certification}`,`우수제품: ${specs.value.excellent==='Y'?'해당':'해당 없음'}`,`MAS: ${specs.value.mas==='Y'?'등록':'미등록'}`,specs.value.contractPeriod&&`계약기간: ${specs.value.contractPeriod}`,specs.value.deliveryTerms&&`인도조건: ${specs.value.deliveryTerms}`].filter(Boolean).join(' · '))
+const recommendationReason=computed(()=>[specs.value.deliveryDays&&`${specs.value.deliveryDays} 납품`,specs.value.supplyRegion,specs.value.certification&&specs.value.certification.split(',').slice(0,2).join('·'),specs.value.excellent==='Y'&&'우수제품',specs.value.mas==='Y'&&'MAS 등록'].filter(Boolean).join(' · ')||'등록된 품목과 납품조건을 기준으로 비교할 수 있습니다.')
+const statusLabel=computed(()=>enrollmentStatus.value==='ACTIVE'?'주문 확정':enrollmentStatus.value==='PENDING'?'결제 처리 중':'요청 전')
+const buttonLabel=computed(()=>isInstructor.value?'공급기업 계정은 발주 불가':enrollmentStatus.value==='ACTIVE'?'내 발주 내역 보기':enrollmentStatus.value==='PENDING'?'발주 접수 완료':'견적 요청 및 발주')
+const buttonDisabled=computed(()=>enrolling.value||isInstructor.value||enrollmentStatus.value==='PENDING')
+const helperText=computed(()=>isInstructor.value?'공급기업 계정에서는 구매 발주를 생성할 수 없습니다.':enrollmentStatus.value==='ACTIVE'?'결제가 완료되어 주문이 확정되었습니다.':enrollmentStatus.value==='PENDING'?'발주가 접수되어 결제를 처리하고 있습니다.':'요청 시 발주 접수와 결제가 연속으로 처리됩니다.')
+async function loadStatus(){if(!auth.user?.id||!course.value?.id||isInstructor.value)return;if(auth.isDemo){const found=getDemoEnrollments().find(v=>Number(v.courseId)===Number(course.value.id));enrollmentStatus.value=found?'ACTIVE':'NONE';return}try{const res=await enrollmentApi.getMyEnrollments();const list=Array.isArray(res.data?.data)?res.data.data:Array.isArray(res.data)?res.data:[];const found=list.find(v=>Number(v.courseId)===Number(course.value.id));enrollmentStatus.value=found?(found.status==='ACTIVE'?'ACTIVE':'PENDING'):'NONE'}catch{enrollmentStatus.value='NONE'}}
+async function handlePrimaryAction(){enrollError.value='';if(enrollmentStatus.value==='ACTIVE')return router.push('/enrollments');if(!course.value?.id||isInstructor.value)return;enrolling.value=true;try{if(auth.isDemo){addDemoEnrollment(course.value);enrollmentStatus.value='ACTIVE'}else{await enrollmentApi.enroll(course.value.id);enrollmentStatus.value='PENDING'}}catch(e){enrollError.value=e.response?.data?.message||'견적·발주 요청에 실패했습니다.'}finally{enrolling.value=false}}
+onMounted(async()=>{await courseStore.fetchCourse(route.params.id);await loadStatus()})
 </script>
 
 <style scoped>
-.page-wrapper {
-  min-height: 100vh;
-  background: var(--color-bg-secondary);
-}
-
-.detail-hero {
-  background: linear-gradient(135deg, #f0f7ff 0%, #e8f4fd 100%);
-  border-bottom: 1px solid var(--color-border);
-  padding: 48px 0;
-}
-
-.detail-hero-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 24px;
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 48px;
-  align-items: start;
-}
-
-.detail-info {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.detail-title {
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.detail-desc {
-  font-size: 15px;
-  color: var(--color-text-secondary);
-  line-height: 1.7;
-}
-
-.detail-meta {
-  display: flex;
-  gap: 20px;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  flex-wrap: wrap;
-}
-
-.enroll-card {
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-md);
-}
-
-.enroll-thumb {
-  height: 160px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.enroll-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 20px;
-}
-
-.thumb-teal { background: #E1F5EE; }
-.thumb-blue { background: #E6F1FB; }
-.thumb-purple { background: #EEEDFE; }
-.thumb-pink { background: #FBEAF0; }
-.thumb-gray { background: #F1EFE8; }
-
-.enroll-body {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.enroll-price {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.btn-full {
-  width: 100%;
-  padding: 13px;
-  font-size: 15px;
-  justify-content: center;
-}
-
-.btn-disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.enroll-info-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.enroll-info-list li {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.error-msg {
-  font-size: 13px;
-  color: #dc2626;
-  padding: 8px 12px;
-  background: #fef2f2;
-  border-radius: var(--radius-sm);
-}
-
-.helper-text {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-
-.empty-text {
-  font-size: 14px;
-  color: var(--color-text-muted);
-}
-
-.loading-center {
-  display: flex;
-  justify-content: center;
-  padding: 100px 0;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.badge-gray {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 900px) {
-  .detail-hero-inner {
-    grid-template-columns: 1fr;
-  }
-}
+.page-wrapper{min-height:100vh;background:var(--color-bg-secondary)}.main-content{max-width:1100px;margin:0 auto;padding:34px 24px 75px}.back-link{font-size:12px;color:var(--color-text-secondary)}.detail-grid{display:grid;grid-template-columns:1fr 330px;gap:42px;margin-top:30px}.title-row{display:flex;gap:8px;align-items:center}.material-badge,.verified{font-size:10px;font-weight:700;padding:5px 9px;border-radius:20px}.material-badge{background:var(--color-primary);color:#fff}.verified{background:var(--color-primary-light);color:var(--color-primary)}h1{font-size:34px;letter-spacing:-.04em;margin:13px 0 5px}.supplier-name{font-size:13px;color:var(--color-text-muted)}.reason-box{margin-top:24px;padding:16px 18px;border-left:3px solid var(--color-secondary);background:#fff8f1}.reason-box span{font-size:9px;font-weight:800;letter-spacing:.12em;color:#ad5c19}.reason-box p{margin-top:5px;font-size:13px;font-weight:600}.capability-section,.description-section{margin-top:34px}.section-heading{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--color-border);padding-bottom:10px}.section-heading h2,.description-section h2{font-size:17px}.section-heading small{font-size:9px;color:var(--color-text-muted)}.spec-grid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--color-border);border-radius:12px;overflow:hidden;margin-top:14px}.spec-grid article{padding:17px;border-right:1px solid var(--color-border);border-bottom:1px solid var(--color-border)}.spec-grid article:nth-child(3n){border-right:0}.spec-grid article:nth-child(n+4){border-bottom:0}.spec-grid span{display:block;font-size:10px;color:var(--color-text-muted);margin-bottom:6px}.spec-grid strong{font-size:13px}.description-section p{font-size:13px;line-height:1.7;color:var(--color-text-secondary);margin-top:11px}.notice{margin-top:28px;padding:14px 16px;border:1px solid var(--color-border);border-radius:10px}.notice b{font-size:10px}.notice p{font-size:10px;color:var(--color-text-muted);margin-top:4px}.order-card{position:sticky;top:94px;align-self:start;background:#fff;border:1px solid var(--color-border);border-radius:16px;padding:24px;box-shadow:var(--shadow-md)}.card-label{font-size:9px;letter-spacing:.14em;color:var(--color-text-muted)}.price{margin:8px 0 20px}.price strong{font-size:30px;color:var(--color-primary)}.price small{font-size:10px;color:var(--color-text-muted)}.order-summary{padding:13px;background:var(--color-bg-secondary);border-radius:9px;margin-bottom:14px}.order-summary div{display:flex;justify-content:space-between;font-size:10px;padding:4px}.order-summary span{color:var(--color-text-muted)}.btn-full{width:100%;justify-content:center;padding:13px}.helper-text,.error-msg{font-size:10px;line-height:1.5;margin-top:9px;color:var(--color-text-muted)}.error-msg{color:#b91c1c}.process-list{list-style:none;border-top:1px solid var(--color-border);margin-top:18px;padding-top:13px}.process-list li{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--color-text-secondary);padding:5px}.process-list b{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--color-bg-tertiary);color:var(--color-primary);font-size:8px}.loading-center{display:flex;justify-content:center;padding:100px;color:var(--color-text-muted)}.spinner{width:36px;height:36px;border:3px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:800px){.detail-grid{grid-template-columns:1fr}.order-card{position:static}.spec-grid{grid-template-columns:1fr 1fr}.spec-grid article:nth-child(n){border-right:1px solid var(--color-border);border-bottom:1px solid var(--color-border)}h1{font-size:28px}}
 </style>

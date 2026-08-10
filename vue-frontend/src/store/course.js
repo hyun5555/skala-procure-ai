@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { courseApi } from '@/api/course.js'
+import { parseCapability } from '@/utils/procurement.js'
+import { getDemoCourses } from '@/data/demo.js'
+import { useAuthStore } from '@/store/auth.js'
 
 export const useCourseStore = defineStore('course', () => {
   const courses = ref([])
@@ -10,7 +13,7 @@ export const useCourseStore = defineStore('course', () => {
   const selectedCategory = ref('전체')
 
   const categories = [
-    '전체', 'SUS304', 'SUS316', 'AL6061', '탄소강', '황동', '티타늄', '엔지니어링플라스틱', '기타'
+    '전체', '파형강관', '파형강관이음관', '피복강관', '피복강관이음', '스틸파일', '주철관', '주철제관이음', '기타 관류'
   ]
 
   // 백엔드 enum → 화면 표시용 소재 계열
@@ -23,14 +26,14 @@ export const useCourseStore = defineStore('course', () => {
   // 반환해서 화면에 영문 enum 이 노출된다. 원본이 그 상태였다 --
   // DATA/AI 는 백엔드에 없는 키였고 DATA_SCIENCE 등 5개는 매핑이 없었다.
   const categoryLabelMap = {
-    BACKEND: 'SUS304',
-    FRONTEND: 'SUS316',
-    DEVOPS: 'AL6061',
-    DATA_SCIENCE: '탄소강',
-    MOBILE: '황동',
-    SECURITY: '티타늄',
-    DATABASE: '엔지니어링플라스틱',
-    OTHER: '기타'
+    BACKEND: '파형강관',
+    FRONTEND: '파형강관이음관',
+    DEVOPS: '피복강관',
+    DATA_SCIENCE: '피복강관이음',
+    MOBILE: '스틸파일',
+    SECURITY: '주철관',
+    DATABASE: '주철제관이음',
+    OTHER: '기타 관류'
   }
 
   // 썸네일 이미지 매핑
@@ -46,14 +49,14 @@ export const useCourseStore = defineStore('course', () => {
   // 키가 **화면 라벨**이다(enum 아님). categoryLabelMap 의 값과 철자까지 같아야 한다.
   // 이미지가 6개뿐이라 계열끼리 재사용한다.
   const categoryThumbnailMap = {
-    'SUS304': thumbnailMap.SPRING,
-    'SUS316': thumbnailMap.SPRING,
-    'AL6061': thumbnailMap.KUBERNETES,
-    '탄소강': thumbnailMap.DOCKER,
-    '황동': thumbnailMap.PYTHON,
-    '티타늄': thumbnailMap.VUE,
-    '엔지니어링플라스틱': thumbnailMap.AI,
-    '기타': thumbnailMap.PYTHON
+    '파형강관': thumbnailMap.SPRING,
+    '파형강관이음관': thumbnailMap.SPRING,
+    '피복강관': thumbnailMap.KUBERNETES,
+    '피복강관이음': thumbnailMap.DOCKER,
+    '스틸파일': thumbnailMap.PYTHON,
+    '주철관': thumbnailMap.VUE,
+    '주철제관이음': thumbnailMap.AI,
+    '기타 관류': thumbnailMap.PYTHON
   }
 
   function normalizeCategory(category) {
@@ -66,7 +69,8 @@ export const useCourseStore = defineStore('course', () => {
 
     return {
       ...course,
-      category: normalizeCategory(course.category)
+      category: normalizeCategory(course.category),
+      specs: course.specs || parseCapability(course.description)
     }
   }
 
@@ -84,6 +88,10 @@ export const useCourseStore = defineStore('course', () => {
     error.value = null
 
     try {
+      if (useAuthStore().isDemo) {
+        courses.value = getDemoCourses().map(normalizeCourse)
+        return
+      }
       const res = await courseApi.getAll()
       console.log('[CourseStore] fetchCourses response =', res.data)
 
@@ -98,7 +106,7 @@ export const useCourseStore = defineStore('course', () => {
       console.log('[CourseStore] normalized courses =', courses.value)
     } catch (e) {
       console.error('[CourseStore] fetchCourses failed:', e)
-      error.value = e.message || '강의 목록을 불러오지 못했습니다.'
+      error.value = e.message || '공급기업 목록을 불러오지 못했습니다.'
       courses.value = []
     } finally {
       loading.value = false
@@ -110,6 +118,10 @@ export const useCourseStore = defineStore('course', () => {
     error.value = null
 
     try {
+      if (useAuthStore().isDemo) {
+        selectedCourse.value = normalizeCourse(getDemoCourses().find(course => Number(course.id) === Number(id)) || null)
+        return
+      }
       const res = await courseApi.getById(id)
       console.log('[CourseStore] fetchCourse response =', res.data)
 
@@ -123,7 +135,7 @@ export const useCourseStore = defineStore('course', () => {
       console.log('[CourseStore] normalized selectedCourse =', selectedCourse.value)
     } catch (e) {
       console.error('[CourseStore] fetchCourse failed:', e)
-      error.value = e.message || '강의 정보를 불러오지 못했습니다.'
+      error.value = e.message || '조달 품목 정보를 불러오지 못했습니다.'
       selectedCourse.value = null
     } finally {
       loading.value = false

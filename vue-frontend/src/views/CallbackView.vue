@@ -47,7 +47,7 @@ onMounted(async () => {
   try {
     await auth.handleCallback(code)
     message.value = '로그인 완료! 이동 중입니다...'
-    router.replace('/courses')
+    router.replace(auth.isInstructor ? '/mypage' : '/courses')
   } catch (err) {
     console.error('OAuth callback 처리 실패:', err)
     message.value = '로그인 처리에 실패했습니다.'

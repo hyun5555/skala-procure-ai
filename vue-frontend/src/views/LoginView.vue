@@ -4,12 +4,12 @@
       <!-- 좌측 브랜딩 -->
       <div class="login-left">
         <div class="brand">
-          <img src="@/assets/images/logo/main_logo.png" alt="LearnNexus" class="brand-logo" />
-          <span class="brand-name">LearnNexus</span>
+          <span class="brand-logo">P</span>
+          <span class="brand-name">PROCURIX</span>
         </div>
         <div class="brand-content">
-          <h2>다시 만나서<br>반갑습니다</h2>
-          <p>로그인하고 나만의 학습 여정을 이어가세요.</p>
+          <h2>품질 데이터로<br>더 나은 조달을</h2>
+          <p>검증된 공급기업과 조건에 맞는 구매기업을 연결합니다.</p>
           <ul class="feature-list">
             <li v-for="f in features" :key="f">
               <span class="dot"></span>{{ f }}
@@ -26,8 +26,13 @@
           <!-- 로그인 영역 -->
           <div v-if="!showRegister" class="section">
             <h3 class="section-title">로그인</h3>
-            <p class="section-desc">LearnNexus 계정으로 로그인합니다.</p>
+            <p class="section-desc">Procurix 기업 계정으로 로그인합니다.</p>
             <button class="btn btn-primary btn-full" @click="handleOAuth">로그인</button>
+            <div class="demo-divider"><span>로그인 없이 둘러보기</span></div>
+            <div class="demo-actions">
+              <button class="demo-btn" @click="handleDemo('STUDENT')"><b>구매기업 데모</b><small>업체 매칭 · 발주 · 추천</small></button>
+              <button class="demo-btn supplier" @click="handleDemo('INSTRUCTOR')"><b>공급기업 데모</b><small>품목 등록 · 대시보드</small></button>
+            </div>
             <div class="switch-link">
               계정이 없으신가요?
               <button class="text-btn" @click="showRegister = true">회원가입</button>
@@ -39,8 +44,8 @@
             <h3 class="section-title">회원가입</h3>
             <form @submit.prevent="handleRegister" class="form">
               <div class="form-group">
-                <label class="form-label">이름</label>
-                <input v-model="registerForm.name" type="text" class="form-input" placeholder="홍길동" required />
+                <label class="form-label">기업명</label>
+                <input v-model="registerForm.name" type="text" class="form-input" placeholder="예: 대한정밀" required />
               </div>
               <div class="form-group">
                 <label class="form-label">이메일</label>
@@ -53,8 +58,8 @@
               <div class="form-group">
                 <label class="form-label">역할</label>
                 <select v-model="registerForm.role" class="form-input">
-                  <option value="STUDENT">학생</option>
-                  <option value="INSTRUCTOR">강사</option>
+                  <option value="STUDENT">구매기업</option>
+                  <option value="INSTRUCTOR">공급기업</option>
                 </select>
               </div>
               <div v-if="error" class="error-msg">{{ error }}</div>
@@ -80,8 +85,10 @@
 import { ref } from 'vue'
 import { useAuthStore } from '@/store/auth.js'
 import { authApi } from '@/api/auth.js'
+import { useRouter } from 'vue-router'
 
 const auth = useAuthStore()
+const router = useRouter()
 
 const showRegister = ref(false)
 const loading = ref(false)
@@ -90,10 +97,15 @@ const success = ref('')
 
 const registerForm = ref({ name: '', email: '', password: '', role: 'STUDENT' })
 
-const features = ['수강 중인 강의 이어보기', '맞춤 강의 추천', '수료증 관리']
+const features = ['품명·규격·지역 기반 공급업체 필터링', '단가·납기·인증·MAS 종합 추천', '거래 후 품질 데이터 피드백']
 
 function handleOAuth() {
   auth.redirectToLogin()
+}
+
+function handleDemo(role) {
+  auth.enterDemo(role)
+  router.push(role === 'INSTRUCTOR' ? '/mypage' : '/courses')
 }
 
 async function handleRegister() {
@@ -129,14 +141,14 @@ async function handleRegister() {
   min-height: 100vh;
 }
 .login-left {
-  background: linear-gradient(160deg, #1a4f8a 0%, #185FA5 50%, #1e7bc4 100%);
+  background: linear-gradient(160deg, #102f2a 0%, #126B5B 55%, #1a806e 100%);
   padding: 48px;
   display: flex;
   flex-direction: column;
   gap: 48px;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
-.brand-logo { width: 40px; height: 40px; border-radius: 10px; object-fit: contain; }
+.brand-logo { width: 40px; height: 40px; border-radius: 10px; display:grid; place-items:center; background:#fff; color:var(--color-primary); font-weight:900; }
 .brand-name { font-size: 18px; font-weight: 700; color: #fff; }
 .brand-content h2 {
   font-size: 32px; font-weight: 700; color: #fff;
@@ -184,6 +196,13 @@ async function handleRegister() {
 }
 .form-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
 .btn-full { width: 100%; padding: 12px; font-size: 15px; justify-content: center; margin-top: 4px; }
+.demo-divider { display:flex; align-items:center; gap:10px; color:var(--color-text-muted); font-size:10px; margin:4px 0; }
+.demo-divider::before,.demo-divider::after { content:''; flex:1; height:1px; background:var(--color-border); }
+.demo-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.demo-btn { padding:12px; border:1px solid #bcd9d2; border-radius:10px; background:var(--color-primary-light); color:var(--color-primary-dark); text-align:left; display:flex; flex-direction:column; gap:3px; }
+.demo-btn.supplier { background:#fff7ef; border-color:#f0d3b6; color:#8a4a15; }
+.demo-btn b { font-size:12px; }
+.demo-btn small { font-size:9px; opacity:.75; }
 
 .switch-link {
   text-align: center;

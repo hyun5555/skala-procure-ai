@@ -1,21 +1,25 @@
 <template>
   <router-link :to="`/courses/${course.id}`" class="course-card">
-    <!-- 썸네일 -->
     <div class="card-thumb" :class="thumbBg">
-      <img v-if="thumbSrc" :src="thumbSrc" :alt="course.title" class="thumb-img" />
-      <div v-else class="thumb-placeholder">{{ course.category?.charAt(0) }}</div>
+      <span class="material-code">{{ course.category }}</span>
+      <span v-if="course.score !== undefined" class="match-score">{{ course.score }}<small>점</small></span>
+      <div class="factory-lines" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
 
     <!-- 내용 -->
     <div class="card-body">
-      <span class="badge" :class="badgeClass">{{ course.category }}</span>
+      <div class="card-kicker"><span class="badge" :class="badgeClass">{{ course.category }}</span><span>{{ course.specs?.companyType || '공급업체' }}</span></div>
       <h3 class="card-title">{{ course.title }}</h3>
+      <p class="item-subtitle">{{ course.specs?.specification || course.specs?.itemName || course.specs?.location || '조달 등록 품목' }}</p>
       <div class="card-meta">
-        <span class="instructor">{{ course.instructorName }}</span>
-        <span class="price">₩{{ Number(course.price).toLocaleString() }}</span>
+        <span class="instructor">{{ course.instructorName || '공급기업' }}</span>
+        <span class="price">{{ Number(course.price).toLocaleString() }}원<small>/{{ course.specs?.unit || '단위' }}</small></span>
       </div>
+      <div v-if="course.specs" class="data-pills"><span>{{ course.specs.deliveryDays || '납기 미등록' }}</span><span v-if="course.specs.mas === 'Y'">MAS</span><span v-if="course.specs.excellent === 'Y'">우수제품</span></div>
+      <p v-if="course.reason" class="recommend-reason">{{ course.reason }}</p>
       <div class="card-footer">
-        <span class="enrolled">수강생 {{ course.enrollmentCount?.toLocaleString() }}명</span>
+        <span class="enrolled">누적 거래 {{ course.enrollmentCount?.toLocaleString() || 0 }}건</span>
+        <span class="detail-link">상세 비교 →</span>
       </div>
     </div>
   </router-link>
@@ -31,30 +35,20 @@ const props = defineProps({
 // 키가 **화면 라벨**이다(enum 아님). store/course.js 의 categoryLabelMap 값과
 // 철자까지 같아야 한다. 빠지면 회색 배지 + 썸네일 없음으로 떨어진다.
 const categoryConfig = {
-  'SUS304':             { bg: 'thumb-teal',   badge: 'badge-teal',   thumb: 'spring_boot' },
-  'SUS316':             { bg: 'thumb-teal',   badge: 'badge-teal',   thumb: 'spring_boot' },
-  'AL6061':             { bg: 'thumb-blue',   badge: 'badge-blue',   thumb: 'kubernetes' },
-  '탄소강':             { bg: 'thumb-blue',   badge: 'badge-blue',   thumb: 'docker' },
-  '황동':               { bg: 'thumb-amber',  badge: 'badge-purple', thumb: 'python' },
-  '티타늄':             { bg: 'thumb-purple', badge: 'badge-purple', thumb: 'vue_js' },
-  '엔지니어링플라스틱': { bg: 'thumb-pink',   badge: 'badge-pink',   thumb: 'generative_ai' },
-  '기타':               { bg: 'thumb-gray',   badge: 'badge-gray',   thumb: 'python' },
+  '파형강관':       { bg: 'thumb-teal',   badge: 'badge-teal' },
+  '파형강관이음관': { bg: 'thumb-teal',   badge: 'badge-teal' },
+  '피복강관':       { bg: 'thumb-blue',   badge: 'badge-blue' },
+  '피복강관이음':   { bg: 'thumb-blue',   badge: 'badge-blue' },
+  '스틸파일':       { bg: 'thumb-amber',  badge: 'badge-purple' },
+  '주철관':         { bg: 'thumb-purple', badge: 'badge-purple' },
+  '주철제관이음':   { bg: 'thumb-pink',   badge: 'badge-pink' },
+  '기타 관류':      { bg: 'thumb-gray',   badge: 'badge-gray' },
 }
 
 const config = computed(() => categoryConfig[props.course.category] || { bg: 'thumb-gray', badge: 'badge-gray' })
 const thumbBg = computed(() => config.value.bg)
 const badgeClass = computed(() => config.value.badge)
 
-// 썸네일 이미지 동적 import
-const thumbSrc = computed(() => {
-  const key = props.course.thumbnail || config.value.thumb
-  if (!key) return null
-  try {
-    return new URL(`../assets/images/courses/${key}.png`, import.meta.url).href
-  } catch {
-    return null
-  }
-})
 </script>
 
 <style scoped>
@@ -74,11 +68,14 @@ const thumbSrc = computed(() => {
   border-color: var(--color-border-hover);
 }
 .card-thumb {
-  height: 120px;
+  height: 112px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
+  justify-content: space-between;
+  padding: 20px;
 }
 .thumb-teal   { background: #E1F5EE; }
 .thumb-blue   { background: #E6F1FB; }
@@ -86,17 +83,13 @@ const thumbSrc = computed(() => {
 .thumb-purple { background: #EEEDFE; }
 .thumb-pink   { background: #FBEAF0; }
 .thumb-gray   { background: #F1EFE8; }
-.thumb-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 16px;
-}
-.thumb-placeholder {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--color-text-muted);
-}
+.material-code { font-size: 24px; font-weight: 800; letter-spacing: -.04em; color: rgba(23,37,35,.8); z-index:1; }
+.match-score { z-index:1; align-self:flex-start; background:#fff; color:var(--color-primary); border-radius:999px; padding:6px 10px; font-size:18px; font-weight:800; box-shadow:var(--shadow-sm); }
+.match-score small { font-size:10px; margin-left:2px; }
+.factory-lines { position:absolute; right:18px; bottom:-4px; display:flex; align-items:flex-end; gap:5px; opacity:.14; }
+.factory-lines i { width:20px; height:52px; background:currentColor; border-radius:4px 4px 0 0; }
+.factory-lines i:nth-child(2) { height:72px; }
+.factory-lines i:nth-child(3) { height:43px; }
 .card-body {
   padding: 14px 16px;
   display: flex;
@@ -110,6 +103,8 @@ const thumbSrc = computed(() => {
   color: var(--color-text-primary);
   line-height: 1.4;
 }
+.item-subtitle { font-size:11px; color:var(--color-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card-kicker { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--color-text-muted); }
 .card-meta {
   display: flex;
   justify-content: space-between;
@@ -124,11 +119,20 @@ const thumbSrc = computed(() => {
   font-weight: 600;
   color: var(--color-primary);
 }
+.price small { font-size:10px; font-weight:500; color:var(--color-text-muted); }
+.recommend-reason { padding:9px 10px; border-radius:8px; background:var(--color-primary-light); color:var(--color-primary-dark); font-size:11px; line-height:1.45; }
+.data-pills { display:flex; gap:5px; flex-wrap:wrap; }
+.data-pills span { padding:3px 7px; border-radius:5px; background:var(--color-bg-tertiary); color:var(--color-text-secondary); font-size:9px; font-weight:600; }
 .card-footer {
   margin-top: 2px;
+  padding-top:8px;
+  border-top:1px solid var(--color-border);
+  display:flex;
+  justify-content:space-between;
 }
 .enrolled {
   font-size: 11px;
   color: var(--color-text-muted);
 }
+.detail-link { font-size:11px; color:var(--color-primary); font-weight:600; }
 </style>

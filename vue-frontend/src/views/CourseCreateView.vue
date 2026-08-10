@@ -1,446 +1,73 @@
 <template>
-  <div class="page-wrapper">
-    <AppHeader />
-
-    <div class="page-layout">
-      <!-- 사이드바 -->
-      <aside class="sidebar">
-        <div class="sidebar-section">
-          <div class="sidebar-label">메뉴</div>
-
-          <router-link
-            to="/courses"
-            class="sidebar-item"
-            :class="{ active: $route.path === '/courses' }"
-          >
-            <span class="si-icon">📚</span> 강의 목록
-          </router-link>
-
-          <router-link
-            to="/courses/new"
-            class="sidebar-item"
-            :class="{ active: $route.path === '/courses/new' }"
-          >
-            <span class="si-icon">✍️</span> 강의 등록
-          </router-link>
-
-          <router-link to="/mypage" class="sidebar-item">
-            <span class="si-icon">⭐</span> 마이페이지
-          </router-link>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">계정</div>
-          <router-link to="/mypage" class="sidebar-item">
-            <span class="si-icon">👤</span> 마이페이지
-          </router-link>
-          <button class="sidebar-item sidebar-btn" @click="handleLogout">
-            <span class="si-icon">🚪</span> 로그아웃
-          </button>
-        </div>
-      </aside>
-
-      <!-- 메인 -->
-      <main class="main-content">
-        <div class="content-header">
-          <div>
-            <h1 class="page-title">강의 등록</h1>
-            <p class="page-subtitle">강사 계정으로 새로운 강의를 등록합니다.</p>
+  <div class="page-wrapper"><AppHeader />
+    <main class="main-content">
+      <router-link to="/mypage" class="back-link">← 조달 품목 목록</router-link>
+      <div class="page-heading"><div><span>SUPPLIER CATALOG</span><h1>공급 품목 등록</h1><p>나라장터 공급업체 데이터와 같은 기준으로 품목과 납품조건을 등록합니다.</p></div><div class="role-chip">공급기업 전용</div></div>
+      <form class="form-card" @submit.prevent="handleSubmit">
+        <section>
+          <div class="section-title"><b>01</b><div><h2>기업·품목 정보</h2><p>공급업체 소재지와 조달 품목의 분류·규격을 입력합니다.</p></div></div>
+          <div class="form-grid three">
+            <div class="field span-two"><span>공급업체 소재지</span><RegionMultiSelect v-model="form.locations" /></div>
+            <label><span>품명</span><select v-model="form.category"><option disabled value="">품명 선택</option><option v-for="option in categoryOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+            <label class="span-two"><span>품목명</span><input v-model.trim="form.itemName" placeholder="예: 파형강관이음관 연결관" /></label>
+            <label><span>규격</span><select v-model="form.specification"><option disabled value="">규격 선택</option><option v-for="spec in specificationOptions" :key="spec">{{ spec }}</option></select></label>
           </div>
-        </div>
-
-        <div class="form-card">
-          <form class="course-form" @submit.prevent="handleSubmit">
-            <div class="form-group">
-              <label class="form-label" for="title">강의명</label>
-              <input
-                id="title"
-                v-model.trim="form.title"
-                type="text"
-                class="form-input"
-                placeholder="예: Cloud Native App기반 Web Service 개발"
-                maxlength="100"
-              />
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="description">강의 설명</label>
-              <textarea
-                id="description"
-                v-model.trim="form.description"
-                class="form-textarea"
-                rows="6"
-                placeholder="강의 소개, 학습 목표, 대상 등을 입력해 주세요."
-              ></textarea>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label" for="category">카테고리</label>
-                <select id="category" v-model="form.category" class="form-select">
-                  <option disabled value="">카테고리를 선택하세요</option>
-                  <option
-                    v-for="option in categoryOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="price">가격</label>
-                <input
-                  id="price"
-                  v-model.number="form.price"
-                  type="number"
-                  min="0"
-                  step="1000"
-                  class="form-input"
-                  placeholder="예: 50000"
-                />
-              </div>
-            </div>
-
-            <div v-if="validationError" class="error-box">
-              {{ validationError }}
-            </div>
-
-            <div v-if="submitError" class="error-box">
-              {{ submitError }}
-            </div>
-
-            <div v-if="submitSuccess" class="success-box">
-              {{ submitSuccess }}
-            </div>
-
-            <div class="form-actions">
-              <router-link to="/courses" class="btn btn-ghost">
-                취소
-              </router-link>
-
-              <button type="submit" class="btn btn-primary" :disabled="submitting">
-                <span v-if="submitting">등록 중...</span>
-                <span v-else>강의 등록</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      </main>
-    </div>
+        </section>
+        <section>
+          <div class="section-title"><b>02</b><div><h2>가격·납품 조건</h2><p>추천 필터와 예산 적합도 계산에 직접 반영됩니다.</p></div></div>
+          <div class="form-grid three">
+            <label><span>단가</span><div class="input-unit"><input v-model.number="form.price" type="number" min="0" placeholder="208424" /><em>원</em></div></label>
+            <label><span>단위</span><select v-model="form.unit"><option v-for="unit in unitOptions" :key="unit">{{ unit }}</option></select></label>
+            <label><span>납품일수</span><select v-model.number="form.deliveryDays"><option v-for="day in deliveryDayOptions" :key="day" :value="day">{{ day }}일</option></select></label>
+            <label class="span-two"><span>공급지역</span><input v-model.trim="form.supplyRegion" placeholder="예: 전지역(도서지역 제외)" /></label>
+            <label><span>인도조건</span><input v-model.trim="form.deliveryTerms" placeholder="예: 광주광역시 소촌대로 제1공장 인도" /></label>
+          </div>
+        </section>
+        <section>
+          <div class="section-title"><b>03</b><div><h2>인증·조달 등록</h2><p>공공조달 적격성과 가점 요소로 활용되는 정보입니다.</p></div></div>
+          <div class="form-grid three">
+            <label class="span-two"><span>인증정보</span><input v-model.trim="form.certification" placeholder="예: KS, 여성기업제품, 품질보증조달물품" /></label>
+            <label><span>우수제품 여부</span><select v-model="form.excellent"><option value="N">해당 없음</option><option value="Y">우수제품</option></select></label>
+            <label><span>MAS 여부</span><select v-model="form.mas"><option value="Y">MAS 등록</option><option value="N">미등록</option></select></label>
+            <label><span>계약 시작일</span><input v-model="form.contractStart" type="date" /></label>
+            <label><span>계약 종료일</span><input v-model="form.contractEnd" type="date" :min="form.contractStart" /></label>
+          </div>
+        </section>
+        <div v-if="validationError || submitError" class="error-box">{{ validationError || submitError }}</div><div v-if="submitSuccess" class="success-box">{{ submitSuccess }}</div>
+        <div class="form-actions"><router-link to="/mypage" class="btn btn-ghost">취소</router-link><button class="btn btn-primary" :disabled="submitting">{{ submitting ? '등록 중...' : '조달 품목 등록' }}</button></div>
+      </form>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
+import RegionMultiSelect from '@/components/RegionMultiSelect.vue'
 import { courseApi } from '@/api/course.js'
 import { useAuthStore } from '@/store/auth.js'
-
-const router = useRouter()
-const auth = useAuthStore()
-
-const form = reactive({
-  title: '',
-  description: '',
-  category: '',
-  price: null
+import { buildCapabilityDescription, deliveryDayOptions } from '@/utils/procurement.js'
+import { addDemoCourse } from '@/data/demo.js'
+import { formatRegionSelection } from '@/data/legalRegions.js'
+const router=useRouter(),auth=useAuthStore()
+const form=reactive({locations:[],category:'',itemName:'',specification:'',price:null,unit:'m',supplyRegion:'전지역',deliveryDays:30,deliveryTerms:'',certification:'',excellent:'N',mas:'Y',contractStart:'',contractEnd:''})
+const submitting=ref(false),validationError=ref(''),submitError=ref(''),submitSuccess=ref('')
+const categoryOptions=[{label:'파형강관',value:'BACKEND'},{label:'파형강관이음관',value:'FRONTEND'},{label:'피복강관',value:'DEVOPS'},{label:'피복강관이음',value:'DATA_SCIENCE'},{label:'스틸파일',value:'MOBILE'},{label:'주철관',value:'SECURITY'},{label:'주철제관이음',value:'DATABASE'},{label:'기타 관류',value:'OTHER'}]
+const unitOptions=['m','개','EA','M','본','KG','조','kg','식']
+const productLabel=computed(()=>categoryOptions.find(v=>v.value===form.category)?.label||'')
+const specificationOptions=computed(()=>{
+  const product=productLabel.value
+  if(['파형강관','파형강관이음관','주철관','주철제관이음'].includes(product)) return ['Φ80mm','Φ100mm','Φ150mm','Φ200mm','Φ250mm','Φ300mm','Φ400mm','Φ500mm','Φ600mm','Φ800mm','Φ1000mm']
+  if(['피복강관','피복강관이음'].includes(product)) return ['15A','20A','25A','40A','50A','80A','100A','150A','200A','300A']
+  if(product==='스틸파일') return ['Φ318.5mm','Φ406.4mm','Φ508mm','Φ609.6mm','Φ711.2mm','Φ812.8mm']
+  return ['소형','중형','대형','주문 규격']
 })
-
-const submitting = ref(false)
-const validationError = ref('')
-const submitError = ref('')
-const submitSuccess = ref('')
-
-// label 은 화면 문구, value 는 **백엔드 enum** 이다.
-// value 를 새 값으로 바꾸면 저장 시 서버가 거부한다. label 만 바꾼다.
-const categoryOptions = [
-  { label: 'SUS304', value: 'BACKEND' },
-  { label: 'SUS316', value: 'FRONTEND' },
-  { label: 'AL6061', value: 'DEVOPS' },
-  { label: '탄소강', value: 'DATA_SCIENCE' },
-  { label: '황동', value: 'MOBILE' },
-  { label: '티타늄', value: 'SECURITY' },
-  { label: '엔지니어링플라스틱', value: 'DATABASE' },
-  { label: '기타', value: 'OTHER' }
-]
-
-function handleLogout() {
-  auth.logout()
-  router.push('/')
-}
-
-function validateForm() {
-  validationError.value = ''
-
-  if (!auth.user || auth.user.role !== 'INSTRUCTOR') {
-    validationError.value = '강사 계정만 강의를 등록할 수 있습니다.'
-    return false
-  }
-
-  if (!form.title) {
-    validationError.value = '강의명을 입력해 주세요.'
-    return false
-  }
-
-  if (!form.description) {
-    validationError.value = '강의 설명을 입력해 주세요.'
-    return false
-  }
-
-  if (!form.category) {
-    validationError.value = '카테고리를 선택해 주세요.'
-    return false
-  }
-
-  if (form.price === null || form.price === undefined || form.price === '') {
-    validationError.value = '가격을 입력해 주세요.'
-    return false
-  }
-
-  const price = Number(form.price)
-  if (Number.isNaN(price) || price < 0) {
-    validationError.value = '가격은 0 이상의 숫자로 입력해 주세요.'
-    return false
-  }
-
-  return true
-}
-
-async function handleSubmit() {
-  submitError.value = ''
-  submitSuccess.value = ''
-
-  if (!validateForm()) return
-
-  submitting.value = true
-
-  try {
-    const payload = {
-      title: form.title,
-      description: form.description,
-      category: form.category,
-      price: Number(form.price)
-    }
-
-    const res = await courseApi.create(payload)
-    console.log('[CourseCreate] create response =', res.data)
-
-    submitSuccess.value = '강의가 성공적으로 등록되었습니다.'
-
-    const createdCourseId =
-      res.data?.data?.id ??
-      res.data?.id
-
-    if (createdCourseId) {
-      setTimeout(() => {
-        router.push(`/courses/${createdCourseId}`)
-      }, 500)
-    } else {
-      setTimeout(() => {
-        router.push('/courses')
-      }, 500)
-    }
-  } catch (error) {
-    console.error('[CourseCreate] create failed:', error)
-    submitError.value =
-      error.response?.data?.message ||
-      '강의 등록에 실패했습니다.'
-  } finally {
-    submitting.value = false
-  }
-}
+watch(()=>form.category,()=>{form.specification=''})
+function validate(){validationError.value='';if(auth.user?.role!=='INSTRUCTOR')return validationError.value='공급기업 계정만 품목을 등록할 수 있습니다.',false;if(!form.locations.length)return validationError.value='공급업체 소재지를 선택해 주세요.',false;const required=[['category','품명'],['itemName','품목명'],['specification','규격'],['price','단가'],['supplyRegion','공급지역'],['deliveryDays','납품일수'],['deliveryTerms','인도조건'],['contractStart','계약 시작일'],['contractEnd','계약 종료일']];const missing=required.find(([key])=>form[key]===null||form[key]===undefined||form[key]==='');if(missing)return validationError.value=`${missing[1]}을(를) 입력해 주세요.`,false;if(form.contractEnd<form.contractStart)return validationError.value='계약 종료일은 시작일 이후로 선택해 주세요.',false;return true}
+async function handleSubmit(){submitError.value='';submitSuccess.value='';if(!validate())return;submitting.value=true;try{const payload={...form,location:formatRegionSelection(form.locations),locationCodes:form.locations,productLabel:productLabel.value};const title=`${form.itemName}, ${form.specification}`;if(auth.isDemo){const id=Date.now();addDemoCourse({id,title,description:buildCapabilityDescription(payload),category:form.category,price:Number(form.price),instructorId:auth.user.id,instructorName:auth.user.name,enrollmentCount:0,status:'ACTIVE'});submitSuccess.value='데모 조달 품목이 등록되었습니다.';setTimeout(()=>router.push(`/courses/${id}`),300);return}const res=await courseApi.create({title,description:buildCapabilityDescription(payload),category:form.category,price:Number(form.price)});submitSuccess.value='조달 품목이 등록되었습니다.';const id=res.data?.data?.id??res.data?.id;setTimeout(()=>router.push(id?`/courses/${id}`:'/mypage'),500)}catch(error){submitError.value=error.response?.data?.message||'조달 품목 등록에 실패했습니다.'}finally{submitting.value=false}}
 </script>
 
 <style scoped>
-.page-wrapper {
-  min-height: 100vh;
-  background: var(--color-bg-secondary);
-}
-
-.page-layout {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 32px 24px;
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 28px;
-}
-
-/* 사이드바 */
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sidebar-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 8px;
-}
-
-.sidebar-label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  padding: 8px 12px 4px;
-}
-
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  transition: var(--transition);
-  background: none;
-  border: none;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  text-decoration: none;
-}
-
-.sidebar-item:hover {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-}
-
-.sidebar-item.active {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.si-icon {
-  font-size: 15px;
-}
-
-.sidebar-btn {
-  color: var(--color-text-secondary);
-}
-
-/* 메인 */
-.main-content {
-  min-width: 0;
-}
-
-.content-header {
-  margin-bottom: 20px;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.page-subtitle {
-  margin-top: 6px;
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-.form-card {
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  box-shadow: var(--shadow-sm);
-}
-
-.course-form {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.form-input,
-.form-textarea,
-.form-select {
-  width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-primary);
-  padding: 12px 14px;
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--color-text-primary);
-  outline: none;
-  transition: var(--transition);
-  box-sizing: border-box;
-}
-
-.form-input:focus,
-.form-textarea:focus,
-.form-select:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
-}
-
-.form-textarea {
-  resize: vertical;
-  min-height: 140px;
-  line-height: 1.5;
-}
-
-.error-box {
-  background: #fef2f2;
-  color: #dc2626;
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  font-size: 13px;
-}
-
-.success-box {
-  background: #ecfdf3;
-  color: #15803d;
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  font-size: 13px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 6px;
-}
-
-@media (max-width: 992px) {
-  .page-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-}
+.page-wrapper{min-height:100vh;background:var(--color-bg-secondary)}.main-content{max-width:980px;margin:0 auto;padding:36px 24px 70px}.back-link{font-size:12px;color:var(--color-text-secondary)}.page-heading{display:flex;justify-content:space-between;align-items:flex-end;margin:22px 0}.page-heading span{font-size:9px;font-weight:800;letter-spacing:.16em;color:var(--color-primary)}.page-heading h1{font-size:28px;margin-top:5px}.page-heading p{font-size:13px;color:var(--color-text-muted);margin-top:5px}.role-chip{padding:7px 11px;border-radius:20px;background:var(--color-primary-light);color:var(--color-primary);font-size:10px;font-weight:700}.form-card{background:#fff;border:1px solid var(--color-border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-sm)}.form-card section{padding:26px 28px;border-bottom:1px solid var(--color-border)}.section-title{display:flex;align-items:center;gap:12px;margin-bottom:20px}.section-title>b{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--color-primary-light);color:var(--color-primary);font-size:11px}.section-title h2{font-size:16px}.section-title p{font-size:11px;color:var(--color-text-muted);margin-top:2px}.form-grid{display:grid;gap:16px}.form-grid.three{grid-template-columns:repeat(3,1fr)}label,.field{display:flex;flex-direction:column;gap:7px}label>span,.field>span{font-size:11px;font-weight:700;color:var(--color-text-secondary)}.span-two{grid-column:span 2}input,select{width:100%;padding:11px 12px;border:1px solid var(--color-border);border-radius:9px;outline:none;color:var(--color-text-primary);background:#fff}input:focus,select:focus{border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-light)}.input-unit{position:relative}.input-unit input{padding-right:45px}.input-unit em{position:absolute;right:11px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--color-text-muted);font-style:normal}.form-actions{display:flex;justify-content:flex-end;gap:8px;padding:20px 28px}.error-box,.success-box{margin:18px 28px 0;padding:11px 13px;border-radius:8px;font-size:12px}.error-box{background:#fef2f2;color:#b91c1c}.success-box{background:var(--color-primary-light);color:var(--color-primary-dark)}@media(max-width:680px){.main-content{padding:26px 16px}.page-heading{align-items:flex-start;flex-direction:column;gap:15px}.form-grid.three{grid-template-columns:1fr}.span-two{grid-column:auto}.form-card section{padding:22px 18px}.form-actions{padding:18px}}
 </style>

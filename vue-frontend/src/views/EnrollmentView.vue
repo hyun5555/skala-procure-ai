@@ -7,7 +7,7 @@
           <div class="sidebar-label">메뉴</div>
 
           <router-link to="/courses" class="sidebar-item">
-            <span class="si-icon">📚</span> 강의 목록
+            <span class="si-icon">⌕</span> 업체 매칭
           </router-link>
 
           <router-link
@@ -15,11 +15,11 @@
             to="/enrollments"
             class="sidebar-item active"
           >
-            <span class="si-icon">✅</span> 내 수강 목록
+            <span class="si-icon">▦</span> 발주 관리
           </router-link>
 
           <router-link to="/mypage" class="sidebar-item">
-            <span class="si-icon">⭐</span> 마이페이지
+            <span class="si-icon">◎</span> 추천 리포트
           </router-link>
         </div>
 
@@ -35,7 +35,7 @@
       </aside>
 
       <main class="main-content">
-        <h1 class="page-title">내 수강 목록</h1>
+        <div class="page-head"><span>ORDER MANAGEMENT</span><h1 class="page-title">발주·납품 관리</h1><p>발주 접수부터 결제, 생산·납품, 품질 데이터 반영까지 확인합니다.</p></div>
 
         <div v-if="loading" class="loading-center">
           <div class="spinner"></div>
@@ -44,7 +44,7 @@
         <div v-else-if="enrollments.length" class="enrollment-list fade-in">
           <div v-for="item in enrollments" :key="item.id" class="enrollment-card">
             <div class="enroll-thumb" :class="getThumbBg(item.course?.category)">
-              <img :src="getThumbSrc(item.course)" :alt="item.course?.title" />
+              <span class="material-symbol">{{ item.course?.category?.charAt(0) || 'P' }}</span>
             </div>
 
             <div class="enroll-info">
@@ -52,7 +52,7 @@
                 {{ item.course?.category }}
               </span>
               <h3 class="enroll-title">{{ item.course?.title }}</h3>
-              <p class="enroll-instructor">강사: {{ item.course?.instructorName }}</p>
+              <p class="enroll-instructor">공급기업: {{ item.course?.instructorName || '공급기업' }}</p>
             </div>
 
             <div class="enroll-status">
@@ -65,7 +65,7 @@
                 {{ item.status === 'ACTIVE' ? '주문 확정' : '결제 대기' }}
               </span>
               <router-link :to="`/courses/${item.courseId}`" class="btn btn-ghost btn-sm">
-                강의 보기
+                발주 상세
               </router-link>
             </div>
           </div>
@@ -73,9 +73,9 @@
 
         <div v-else class="empty-state">
           <p class="empty-icon">📭</p>
-          <p>수강 중인 강의가 없습니다.</p>
+          <p>진행 중인 발주가 없습니다.</p>
           <router-link to="/courses" class="btn btn-primary" style="margin-top:16px;">
-            강의 둘러보기
+            공급기업 찾기
           </router-link>
         </div>
       </main>
@@ -89,9 +89,12 @@ import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import { enrollmentApi } from '@/api/enrollment.js'
 import { useAuthStore } from '@/store/auth.js'
+import { useCourseStore } from '@/store/course.js'
+import { getDemoEnrollments } from '@/data/demo.js'
 
 const router = useRouter()
 const auth = useAuthStore()
+const courseStore = useCourseStore()
 
 const enrollments = ref([])
 const loading = ref(true)
@@ -99,11 +102,10 @@ const loading = ref(true)
 const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
 
 const categoryConfig = {
-  '백엔드': { bg: 'thumb-teal', badge: 'badge-teal', thumb: 'spring_boot' },
-  '프론트엔드': { bg: 'thumb-teal', badge: 'badge-teal', thumb: 'vue_js' },
-  'DevOps': { bg: 'thumb-blue', badge: 'badge-blue', thumb: 'kubernetes' },
-  '데이터': { bg: 'thumb-purple', badge: 'badge-purple', thumb: 'python' },
-  'AI': { bg: 'thumb-pink', badge: 'badge-pink', thumb: 'generative_ai' },
+  '파형강관': { bg: 'thumb-teal', badge: 'badge-teal' }, '파형강관이음관': { bg: 'thumb-teal', badge: 'badge-teal' },
+  '피복강관': { bg: 'thumb-blue', badge: 'badge-blue' }, '피복강관이음': { bg: 'thumb-blue', badge: 'badge-blue' },
+  '스틸파일': { bg: 'thumb-purple', badge: 'badge-purple' }, '주철관': { bg: 'thumb-purple', badge: 'badge-purple' },
+  '주철제관이음': { bg: 'thumb-pink', badge: 'badge-pink' }, '기타 관류': { bg: 'thumb-gray', badge: 'badge-gray' }
 }
 
 function getThumbBg(cat) {
@@ -112,16 +114,6 @@ function getThumbBg(cat) {
 
 function getBadge(cat) {
   return categoryConfig[cat]?.badge || 'badge-gray'
-}
-
-function getThumbSrc(course) {
-  const key = course?.thumbnail || categoryConfig[course?.category]?.thumb
-  if (!key) return ''
-  try {
-    return new URL(`../assets/images/courses/${key}.png`, import.meta.url).href
-  } catch {
-    return ''
-  }
 }
 
 function handleLogout() {
@@ -138,13 +130,17 @@ onMounted(async () => {
   }
 
   try {
+    if (auth.isDemo) {
+      enrollments.value = getDemoEnrollments().map(item => ({ ...item, course: courseStore.normalizeCourse(item.course) }))
+      return
+    }
     const res = await enrollmentApi.getMyEnrollments()
     console.log('[EnrollmentView] my enrollments response:', res.data)
 
     if (Array.isArray(res.data?.data)) {
-      enrollments.value = res.data.data
+      enrollments.value = res.data.data.map(item => ({ ...item, course: courseStore.normalizeCourse(item.course) }))
     } else if (Array.isArray(res.data)) {
-      enrollments.value = res.data
+      enrollments.value = res.data.map(item => ({ ...item, course: courseStore.normalizeCourse(item.course) }))
     } else {
       enrollments.value = []
     }
@@ -236,6 +232,9 @@ onMounted(async () => {
   font-weight: 700;
   margin-bottom: 24px;
 }
+.page-head { margin-bottom:24px; }
+.page-head>span { font-size:9px; font-weight:800; letter-spacing:.15em; color:var(--color-primary); }
+.page-head p { font-size:12px; color:var(--color-text-muted); margin-top:5px; }
 
 .enrollment-list {
   display: flex;
@@ -275,6 +274,7 @@ onMounted(async () => {
   object-fit: contain;
   padding: 8px;
 }
+.material-symbol { font-size:22px; font-weight:800; color:var(--color-primary); }
 
 .thumb-teal {
   background: #E1F5EE;

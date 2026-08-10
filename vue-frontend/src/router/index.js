@@ -22,7 +22,7 @@ const routes = [
     path: '/courses',
     name: 'CourseList',
     component: () => import('@/views/CourseListView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, buyerOnly: true }
   },
   {
     path: '/courses/new',
@@ -67,11 +67,15 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
-    return { name: 'CourseList' }
+    return auth.isInstructor ? { name: 'MyPage' } : { name: 'CourseList' }
   }
 
   if (to.meta.instructorOnly && auth.user?.role !== 'INSTRUCTOR') {
     return { name: 'CourseList' }
+  }
+
+  if (to.meta.buyerOnly && auth.user?.role === 'INSTRUCTOR') {
+    return { name: 'MyPage' }
   }
 })
 

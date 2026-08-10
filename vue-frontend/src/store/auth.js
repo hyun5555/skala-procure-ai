@@ -7,8 +7,9 @@ const AUTH_SERVER_URL = import.meta.env.VITE_AUTH_SERVER_URL || 'http://localhos
 export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref(sessionStorage.getItem('access_token') || null)
   const user = ref(JSON.parse(sessionStorage.getItem('user') || 'null'))
+  const isDemo = ref(sessionStorage.getItem('demo_mode') === 'true')
 
-  const isAuthenticated = computed(() => !!accessToken.value)
+  const isAuthenticated = computed(() => !!accessToken.value || isDemo.value)
   const isInstructor = computed(() => user.value?.role === 'INSTRUCTOR')
 
   function setToken(token) {
@@ -44,10 +45,22 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     sessionStorage.removeItem('access_token')
     sessionStorage.removeItem('user')
+    sessionStorage.removeItem('demo_mode')
+    sessionStorage.removeItem('demo_courses')
+    sessionStorage.removeItem('demo_enrollments')
+    isDemo.value = false
 
     if (redirect) {
       window.location.href = '/login'
     }
+  }
+
+  function enterDemo(role = 'STUDENT') {
+    isDemo.value = true
+    sessionStorage.setItem('demo_mode', 'true')
+    setUser(role === 'INSTRUCTOR'
+      ? { id: 9002, email: 'supplier@demo.procurix.kr', name: '남강철강 주식회사', role: 'INSTRUCTOR' }
+      : { id: 9001, email: 'buyer@demo.procurix.kr', name: '대한건설 구매팀', role: 'STUDENT' })
   }
 
   // OAuth2 Authorization Code Flow
@@ -81,11 +94,13 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAuthenticated,
     isInstructor,
+    isDemo,
     setToken,
     setUser,
     fetchUser,
     logout,
     redirectToLogin,
-    handleCallback
+    handleCallback,
+    enterDemo
   }
 })
