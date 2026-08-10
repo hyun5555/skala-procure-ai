@@ -6,8 +6,6 @@ repository_root=$(git rev-parse --show-toplevel)
 cd "$repository_root"
 
 git config --local core.hooksPath .githooks
-git config --local commit.template .gitmessage
 chmod +x .githooks/pre-push
 
 printf '%s\n' "Git hooks 활성화: $(git config --local --get core.hooksPath)"
-printf '%s\n' "커밋 템플릿 활성화: $(git config --local --get commit.template)"
