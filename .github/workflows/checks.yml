@@ -1,0 +1,105 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 규칙 문서가 갈라지면 어느 쪽이 최신인지 아무도 확정할 수 없게 된다.
+      - name: Rules — AGENTS.md and CLAUDE.md must be identical
+        run: |
+          if ! diff -u AGENTS.md CLAUDE.md; then
+            echo "::error::AGENTS.md와 CLAUDE.md가 다릅니다. 두 파일은 같은 문서이므로 같은 PR에서 동일하게 고쳐야 합니다."
+            exit 1
+          fi
+          echo "두 파일 동일"
+
+      # 소스가 없는 인프라 3종에 디렉터리를 만드는 것은 실습 범위를 벗어난 것이다.
+      - name: Guard — 인프라 3종 소스를 추가하지 않는다
+        run: |
+          violations=$(git ls-files 'auth-server/**' 'api-gateway/**' || true)
+          if [ -n "$violations" ]; then
+            echo "::error::auth-server / api-gateway 는 빌드된 이미지로만 제공됩니다. 소스를 추가할 수 없습니다."
+            printf '%s\n' "$violations"
+            exit 1
+          fi
+          echo "인프라 소스 추가 없음"
+
+      # 게이트웨이 라우팅은 빌드된 이미지에 고정되어 있고 catch-all 라우트가 없다.
+      - name: Guard — API 경로를 바꾸지 않는다
+        run: |
+          expected="/api/users /api/courses /api/enrollments /api/payments"
+          fail=0
+          for pair in \
+            "user-service:/api/users" \
+            "course-service:/api/courses" \
+            "enrollment-service:/api/enrollments" \
+            "payment-service:/api/payments"
+          do
+            svc="${pair%%:*}"; path="${pair##*:}"
+            if ! grep -rq "RequestMapping(\"$path\")" "$svc/src" 2>/dev/null; then
+              echo "::error::$svc 의 @RequestMapping 이 $path 가 아닙니다. 게이트웨이가 라우팅하지 못해 404가 됩니다."
+              fail=1
+            fi
+          done
+          if ! grep -q 'prefix="/api/recommend"' recommend-service/app/router/recommend_router.py; then
+            echo "::error::recommend-service 의 라우터 prefix 가 /api/recommend 가 아닙니다."
+            fail=1
+          fi
+          exit $fail
+
+      # auth-server 에 localhost:3000/callback 이 하드코딩되어 다른 포트는 로그인이 거부된다.
+      - name: Guard — 프론트엔드 포트는 3000 이다
+        run: |
+          if ! grep -q 'port: *3000' vue-frontend/vite.config.js; then
+            echo "::error::vue-frontend/vite.config.js 의 port 가 3000 이 아닙니다. auth-server 가 redirect_uri 를 거부합니다."
+            grep -n 'port:' vue-frontend/vite.config.js || true
+            exit 1
+          fi
+          if ! grep -q 'VITE_REDIRECT_URI=http://localhost:3000/callback' vue-frontend/.env; then
+            echo "::error::vue-frontend/.env 의 VITE_REDIRECT_URI 가 auth-server 등록값과 다릅니다."
+            exit 1
+          fi
+          echo "포트 3000 유지"
+
+      # 100MB 를 넘는 파일은 GitHub 가 거부한다. 이미지 tar 가 실수로 들어오는 것을 막는다.
+      - name: Guard — 대용량 파일을 커밋하지 않는다
+        run: |
+          large=$(git ls-files | while IFS= read -r f; do
+            if [ -f "$f" ] && [ "$(wc -c < "$f")" -gt 41943040 ]; then printf '%s\n' "$f"; fi
+          done)
+          if [ -n "$large" ]; then
+            echo "::error::40MB 를 넘는 파일이 커밋되어 있습니다. .gitignore 를 확인하세요."
+            printf '%s\n' "$large"
+            exit 1
+          fi
+          echo "대용량 파일 없음"
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        working-directory: vue-frontend
+        run: npm install --no-audit --no-fund
+      - name: Build
+        working-directory: vue-frontend
+        run: npm run build
+
+# Gradle 빌드 검사는 넣지 않았다.
+# 서비스 5개를 매 PR 마다 빌드하면 Actions 사용량이 빠르게 소진되고,
+# 이 실습에서 자바 변경은 예외적인 경우로 제한하기 때문이다.
+# 자바를 고친 PR 은 작성자가 로컬에서
+#   docker compose up -d --build <서비스명>
+# 으로 확인하고 그 결과를 PR 본문에 남긴다.

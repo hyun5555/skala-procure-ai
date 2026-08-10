@@ -1,0 +1,21 @@
+// [임시] Maven Central 429(Too Many Requests) 우회용 미러 설정
+// 공용 IP가 rate limit에 걸려 repo.maven.apache.org 접근이 막힐 때 사용합니다.
+// 원복: 이 파일 삭제 + Dockerfile의 "-I gradle/mirror-init.gradle" 제거
+def mirrorUrl = 'https://maven-central.storage-download.googleapis.com/maven2'
+
+beforeSettings { settings ->
+    // 플러그인(spring-boot, dependency-management) 해석용
+    settings.pluginManagement {
+        repositories {
+            maven { url = mirrorUrl }
+            gradlePluginPortal()
+        }
+    }
+    // 일반 의존성 해석용. PREFER_SETTINGS로 build.gradle의 mavenCentral()을 무시시킴
+    settings.dependencyResolutionManagement {
+        repositories {
+            maven { url = mirrorUrl }
+        }
+        repositoriesMode = org.gradle.api.initialization.resolve.RepositoriesMode.PREFER_SETTINGS
+    }
+}

@@ -1,0 +1,31 @@
+name: 결함
+description: 동작이 기대와 다름
+labels: [bug]
+body:
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 동작
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작
+      description: 화면 캡처나 응답 본문을 함께 넣어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현 절차
+    validations:
+      required: true
+  - type: checkboxes
+    id: falsepositive
+    attributes:
+      label: 오탐 확인
+      description: AGENTS.md 의 `알려진 오탐` 표를 먼저 확인해 주세요.
+      options:
+        - label: 알려진 오탐 목록에 없는 항목입니다
+          required: true

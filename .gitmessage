@@ -1,0 +1,14 @@
+# <type>(<optional-scope>): <summary>
+#
+# Why:
+#
+# What:
+#
+# Allowed types:
+# feat, fix, refactor, docs, test, chore, ci, build, perf, revert
+#
+# Allowed scopes (서비스 디렉터리 이름):
+# web, course, enrollment, payment, recommend, db, infra
+#
+# Example:
+# feat(web): map category labels to supplier domain

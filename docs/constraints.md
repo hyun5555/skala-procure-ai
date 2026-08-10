@@ -1,0 +1,198 @@
+# 검증된 제약
+
+이 문서는 **바꿀 수 없는 것**과 **바꾸려면 대가가 있는 것**을 기록한다. 전부 기동 중인 컨테이너와 이미지 내부를 직접 확인한 결과이며, 추측이 아니다.
+
+기획하다 막히면 여기를 먼저 본다. 대부분의 막힘은 아래 다섯 개 중 하나에 부딪힌 것이다.
+
+## 1. 인프라 3종은 소스가 없다
+
+`eureka-server`는 소스가 있지만 수정 대상이 아니고, `auth-server`와 `api-gateway`는 **소스 자체가 저장소에 없다.** `infra-images.tar`의 빌드된 이미지로만 제공된다.
+
+```text
+msa-lecture/
+├── eureka-server/          소스 있음. 수정 대상 아님
+├── auth-server/            없음 ← 이미지만 존재
+├── api-gateway/            없음 ← 이미지만 존재
+├── course-service/         수정 대상
+├── enrollment-service/     수정 대상
+├── payment-service/        수정 대상
+├── recommend-service/      수정 대상
+├── vue-frontend/           수정 대상
+└── init-db/                수정 대상
+```
+
+"수정하지 말라"가 아니라 **수정할 방법이 없다.** 기획을 여기에 부딪히게 설계하면 시간을 잃는다.
+
+## 2. API 경로가 게이트웨이에 고정되어 있다
+
+api-gateway 기동 로그의 `RouteDefinition` 덤프에서 확인한 라우팅이다.
+
+| 경로 | 대상 |
+| --- | --- |
+| `/api/users/**` | user-service |
+| `/api/courses/**` | course-service |
+| `/api/enrollments/**` | enrollment-service |
+| `/api/payments/**` | payment-service |
+| `/api/recommend/**` | recommend-service |
+| `/oauth2/**` `/login` `/logout` `/userinfo` `/.well-known/**` | auth-server |
+
+**catch-all 라우트가 없다.** 그래서 두 가지가 불가능하다.
+
+- 기존 경로 이름을 바꾸는 것. `/api/courses` → `/api/products` 로 바꾸면 게이트웨이가 라우팅하지 못해 프론트에서 즉시 404가 된다.
+- 신규 서비스를 새 경로로 노출하는 것. 새 기능은 기존 경로 하위에 붙인다. 예를 들어 품질검사 등록은 `PATCH /api/enrollments/{id}/quality` 처럼 만든다.
+
+**도메인 치환은 화면에 보이는 말과 DB 컬럼 의미만 바꾸는 것이다.** 경로는 원본을 그대로 쓴다. 이 저장소에서 가장 흔한 실수다.
+
+## 3. 프론트엔드 포트는 3000 이어야 한다
+
+auth-server 이미지 내부 `BOOT-INF/classes/com/lecture/auth/config/AuthorizationServerConfig.class` 에 다음이 하드코딩되어 있다.
+
+```text
+web-client
+http://localhost:3000/callback      redirect URI
+http://localhost:3000/              post-logout redirect URI
+```
+
+jar 내부 `application.yml` 에 `spring.security.oauth2.authorizationserver.client.*` 속성이 **없다.** 그래서 `docker-compose.yml` 환경변수로도 덮어쓸 수 없다.
+
+실제 확인 결과:
+
+```text
+redirect_uri=http://localhost:3000/callback → 302 (정상)
+redirect_uri=http://localhost:3001/callback → 400 (거부)
+```
+
+포트를 3001로 바꾸면 화면은 뜨지만 **로그인이 거부되고, 라우터 가드가 걸린 화면 전부가 막힌다.** 랜딩과 로그인 화면만 남는다.
+
+다른 프로젝트가 3000을 쓰고 있으면 **그 프로젝트를 옮긴다.** 이쪽은 선택의 여지가 없다.
+
+`vite.config.js` 에 `strictPort: true` 가 있어서 3000이 점유되어 있으면 `Port 3000 is already in use` 로 기동 자체가 실패한다. 점유 프로세스는 이렇게 확인한다.
+
+```bash
+lsof -nP -iTCP:3000 -sTCP:LISTEN
+```
+
+## 4. 사용자 역할은 2종뿐이다
+
+`STUDENT` 와 `INSTRUCTOR` 만 있다. JWT의 role 클레임을 auth-server가 발급하므로 **제3의 역할을 추가할 수 없다.**
+
+이해관계자가 셋 이상인 도메인을 기획할 때는 **운영자를 Pain Point 기술에만 등장시키고 로그인 역할로는 만들지 않는다.** 두 역할에 팀 도메인 이름을 씌우는 방식으로 처리한다.
+
+| 원본 | 조달 플랫폼 |
+| --- | --- |
+| `INSTRUCTOR` | 공급기업 |
+| `STUDENT` | 구매기업 |
+
+## 5. 한 사용자가 한 항목을 한 번만 신청할 수 있다
+
+`init-db/01_init.sql` 과 `Enrollment` 엔티티 양쪽에 제약이 있다.
+
+```sql
+UNIQUE KEY uq_user_course (user_id, course_id)
+```
+
+재구매·반복 발주·재실행이 핵심인 도메인은 **두 번째 요청부터 DB 에러가 난다.** 기획 단계에서 "한 항목을 한 번" 구조로 정의해 회피하는 것이 기본이다. 정말 필요하면 `init-db` 와 엔티티의 제약을 함께 풀어야 하고, 이때 `docker compose down -v` 로 볼륨을 지워야 DDL이 다시 적용된다.
+
+## 대가가 있는 것
+
+바꿀 수는 있지만 자바 수정과 재빌드가 필요한 항목이다.
+
+### 결제 금액이 고정되어 있다
+
+`enrollment-service/src/main/java/com/lecture/enrollment/service/EnrollmentService.java` 에서 발주 시 결제 금액이 하드코딩되어 있다.
+
+```java
+paymentServiceClient.requestPayment(userId, courseId, BigDecimal.valueOf(99000));
+```
+
+주문마다 금액이 다른 도메인이면 결제 내역에 실제와 다른 값이 남는다. 선택지는 셋이다.
+
+| 방법 | 자바 수정 | 결과 |
+| --- | --- | --- |
+| 카탈로그 단가를 조회해 넘긴다 | 필요 | 기획안대로 동작 |
+| 시연용 단가를 99,000원에 맞춘다 | 없음 | 금액이 하나로 고정 |
+| 화면에만 계산값을 표시한다 | 없음 | 결제 내역과 불일치. 발표에서 지적될 수 있다 |
+
+**어느 쪽으로 갈지 Sprint1 Planning에서 정하고 이 문서에 기록한다.**
+
+### 조달 조건 입력 필드가 없다
+
+`POST /api/enrollments` 는 `{ "courseId": 1 }` 만 받는다. 수량·예산·희망납기·최대 허용 불량률 같은 조건 필드가 없다.
+
+자바를 고치지 않는 방법은 **조건을 프론트엔드 상태로 들고 있다가 추천 API 호출 시 전달**하는 것이다. 발주 자체에는 조건이 저장되지 않지만 추천에는 반영된다.
+
+### 엔티티에 없는 필드
+
+`courses` 테이블에는 가공 가능 소재, 가공 방식, 최대 생산량, 평균 납기, 보유 인증에 해당하는 컬럼이 없다.
+
+컬럼을 추가하기 전에 **`description` 자유 텍스트에 구분자로 담고 프론트엔드에서 파싱해 표로 표시**하는 방법을 먼저 검토한다. `description` 은 `TEXT` 라 길이 제약이 사실상 없다.
+
+## 카테고리 enum 슬롯
+
+백엔드 `Course.Category` 는 8개 값으로 고정되어 있다.
+
+```text
+BACKEND · FRONTEND · DEVOPS · DATA_SCIENCE · MOBILE · SECURITY · DATABASE · OTHER
+```
+
+**이 값들은 의미 없는 슬롯으로 취급한다.** 프론트엔드가 화면 라벨로 변환해서 보여주므로 도메인 값을 여기에 배정하면 된다.
+
+라벨을 정의하는 곳이 네 군데이고, 서로 어긋나면 배지가 회색으로 떨어지거나 영문 enum이 화면에 그대로 노출된다.
+
+| 파일 | 키 | 주의 |
+| --- | --- | --- |
+| `vue-frontend/src/store/course.js` `categories` | 화면 라벨 | 첫 항목 `'전체'` 는 필터 초기값이므로 남긴다 |
+| `vue-frontend/src/store/course.js` `categoryLabelMap` | **백엔드 enum** | 8칸을 빠짐없이 채운다. 없는 키는 영문이 노출된다 |
+| `vue-frontend/src/store/course.js` `categoryThumbnailMap` | 화면 라벨 | 위에서 정한 라벨과 철자까지 같아야 한다 |
+| `vue-frontend/src/components/CourseCard.vue` `categoryConfig` | 화면 라벨 | 빠지면 회색 배지 + 썸네일 없음 |
+| `vue-frontend/src/views/CourseCreateView.vue` `categoryOptions` | `label`은 문구, `value`는 **enum** | value 를 새 값으로 바꾸지 않는다 |
+
+원본 상태에서 이미 어긋나 있다. `categoryLabelMap` 에 백엔드에 없는 `DATA` 와 `AI` 키가 있고, 실제로 저장되는 `DATA_SCIENCE` `MOBILE` `SECURITY` `DATABASE` `OTHER` 는 매핑이 없다. **8칸을 채우면 이 결함이 함께 해소된다.**
+
+## Maven Central 429
+
+같은 강의장 네트워크는 공용 IP를 쓴다. 여러 명이 동시에 Gradle 빌드를 돌리면 Maven Central이 그 IP를 차단한다.
+
+```text
+Could not GET 'https://repo.maven.apache.org/maven2/...'
+Received status code 429 from server: Too Many Requests
+```
+
+**코드 문제가 아니다.** 이 저장소는 Google이 운영하는 Maven Central 미러로 우회하도록 설정되어 있다.
+
+- `<서비스>/gradle/mirror-init.gradle` — 미러 저장소 설정
+- 각 `Dockerfile` 의 gradlew 호출에 `-I gradle/mirror-init.gradle`
+
+미러가 불필요해지면 두 곳을 함께 되돌린다. 한쪽만 지우면 빌드가 깨진다.
+
+`--no-cache` 재빌드는 매번 의존성을 전부 다시 받게 만들어 429를 유발한다. **변경한 서비스만 다시 올린다.**
+
+```bash
+docker compose up -d --build course-service
+```
+
+## Swagger 접속 경로
+
+게이트웨이 경유로는 문서를 볼 수 없다. 실습 가이드의 안내와 다르며, 직접 확인한 결과다.
+
+| 대상 | 경로 | 결과 |
+| --- | --- | --- |
+| user / course / enrollment / payment | `:8081~8084/swagger-ui.html` | 정상 |
+| 같은 서비스들의 OpenAPI JSON | `:8081~8084/api-docs` | 정상 |
+| recommend | `:8085/docs` | 정상 (FastAPI) |
+| 게이트웨이 경유 UI | `:8080/swagger-ui.html` | 401 |
+| 게이트웨이 경유 JSON | `:8080/api-docs` | 200 이지만 `"paths":{}` 빈 문서 |
+
+springdoc 경로가 커스터마이즈되어 있어 기본값 `/v3/api-docs` 가 아니라 **`/api-docs`** 다.
+
+**문서 확인은 개별 포트, 실제 호출은 게이트웨이(8080)** 로 한다. Swagger의 Try it out은 개별 포트 기준으로 호출되므로 인증과 CORS 동작이 프론트엔드와 다르다.
+
+## 미결 사항
+
+사슬의 두 칸이 어긋났는데 즉시 해소하지 못한 항목을 여기에 적는다. **양쪽 원문을 인용한다.** 조용히 지나가지 않는다.
+
+| 발견일 | 어긋난 두 칸 | 내용 | 상태 |
+| --- | --- | --- | --- |
+| 2026-08-10 | 기획안 ↔ enrollment-service | 기획안은 주문별 금액(480만원 등)을 전제하지만 코드는 99,000원 고정 | 미결 — Sprint1 Planning에서 결정 |
+| 2026-08-10 | 기획안 ↔ recommend-service | 기획안 7.2의 `추천점수`·`추천 해석` 이 `RecommendResponse` 에 없음 | Sprint2 작업으로 계획 |
+| 2026-08-10 | 기획안 ↔ API | 기획안 7.3의 품질검사 등록에 해당하는 엔드포인트가 없음 | Sprint2 작업으로 계획 |
