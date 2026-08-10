@@ -13,6 +13,10 @@ export const courseApi = {
     return api.get(`/api/courses/${id}`)
   },
 
+  getByInstructor(instructorId) {
+    return api.get(`/api/courses/instructor/${instructorId}`)
+  },
+
   create(data) {
     return api.post('/api/courses', data)
   },

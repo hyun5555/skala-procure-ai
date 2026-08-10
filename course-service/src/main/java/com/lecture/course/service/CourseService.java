@@ -63,7 +63,7 @@ public class CourseService {
      * GET /courses/instructor/{instructorId} - 공급기업(강사)별 등록 품목 조회
      */
     public List<CourseDto.CourseResponse> getCoursesByInstructor(Long instructorId) {
-        return courseRepository.findByInstructorId(instructorId).stream()
+        return courseRepository.findByInstructorIdAndStatus(instructorId, Course.Status.ACTIVE).stream()
                 .map(CourseDto.CourseResponse::from)
                 .collect(Collectors.toList());
     }
