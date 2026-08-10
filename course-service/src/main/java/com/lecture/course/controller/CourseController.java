@@ -43,6 +43,17 @@ public class CourseController {
     }
 
     /**
+     * GET /courses/instructor/{instructorId} - 공급기업(강사)별 품목 목록
+     */
+    @GetMapping("/instructor/{instructorId}")
+    public ResponseEntity<CourseDto.ApiResponse<List<CourseDto.CourseResponse>>> getCoursesByInstructor(
+            @PathVariable Long instructorId) {
+        return ResponseEntity.ok(
+                CourseDto.ApiResponse.success(courseService.getCoursesByInstructor(instructorId))
+        );
+    }
+
+    /**
      * GET /courses/{id} - 강의 상세
      */
     @GetMapping("/{id}")
