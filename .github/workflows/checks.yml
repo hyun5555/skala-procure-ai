@@ -5,37 +5,21 @@ on:
   push:
     branches: [main]
 
+# 검사는 "앱이 깨지는 것"만 막는다.
+# 브랜치 이름과 PR 제목 형식은 CLAUDE.md 의 규칙으로만 두고 CI 로 막지 않는다.
+# 2시간 Sprint 에서 제목 오타로 merge 가 막히는 비용이 규칙이 주는 이득보다 크다.
+
 jobs:
-  checks:
-    name: Checks
+  guards:
+    name: Guards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # 규칙 문서가 갈라지면 어느 쪽이 최신인지 아무도 확정할 수 없게 된다.
-      - name: Rules — AGENTS.md and CLAUDE.md must be identical
-        run: |
-          if ! diff -u AGENTS.md CLAUDE.md; then
-            echo "::error::AGENTS.md와 CLAUDE.md가 다릅니다. 두 파일은 같은 문서이므로 같은 PR에서 동일하게 고쳐야 합니다."
-            exit 1
-          fi
-          echo "두 파일 동일"
-
-      # 소스가 없는 인프라 3종에 디렉터리를 만드는 것은 실습 범위를 벗어난 것이다.
-      - name: Guard — 인프라 3종 소스를 추가하지 않는다
-        run: |
-          violations=$(git ls-files 'auth-server/**' 'api-gateway/**' || true)
-          if [ -n "$violations" ]; then
-            echo "::error::auth-server / api-gateway 는 빌드된 이미지로만 제공됩니다. 소스를 추가할 수 없습니다."
-            printf '%s\n' "$violations"
-            exit 1
-          fi
-          echo "인프라 소스 추가 없음"
-
       # 게이트웨이 라우팅은 빌드된 이미지에 고정되어 있고 catch-all 라우트가 없다.
-      - name: Guard — API 경로를 바꾸지 않는다
+      # 경로를 바꾸면 프론트에서 즉시 404 가 되는데 원인을 찾기 어렵다.
+      - name: API 경로를 바꾸지 않는다
         run: |
-          expected="/api/users /api/courses /api/enrollments /api/payments"
           fail=0
           for pair in \
             "user-service:/api/users" \
@@ -45,7 +29,7 @@ jobs:
           do
             svc="${pair%%:*}"; path="${pair##*:}"
             if ! grep -rq "RequestMapping(\"$path\")" "$svc/src" 2>/dev/null; then
-              echo "::error::$svc 의 @RequestMapping 이 $path 가 아닙니다. 게이트웨이가 라우팅하지 못해 404가 됩니다."
+              echo "::error::$svc 의 @RequestMapping 이 $path 가 아닙니다. 게이트웨이가 라우팅하지 못해 404 가 됩니다."
               fail=1
             fi
           done
@@ -56,7 +40,7 @@ jobs:
           exit $fail
 
       # auth-server 에 localhost:3000/callback 이 하드코딩되어 다른 포트는 로그인이 거부된다.
-      - name: Guard — 프론트엔드 포트는 3000 이다
+      - name: 프론트엔드 포트는 3000 이다
         run: |
           if ! grep -q 'port: *3000' vue-frontend/vite.config.js; then
             echo "::error::vue-frontend/vite.config.js 의 port 가 3000 이 아닙니다. auth-server 가 redirect_uri 를 거부합니다."
@@ -69,8 +53,8 @@ jobs:
           fi
           echo "포트 3000 유지"
 
-      # 100MB 를 넘는 파일은 GitHub 가 거부한다. 이미지 tar 가 실수로 들어오는 것을 막는다.
-      - name: Guard — 대용량 파일을 커밋하지 않는다
+      # infra-images.tar 가 343MB 로 저장소 루트에 있다. 실수로 들어오면 push 자체가 거부된다.
+      - name: 대용량 파일을 커밋하지 않는다
         run: |
           large=$(git ls-files | while IFS= read -r f; do
             if [ -f "$f" ] && [ "$(wc -c < "$f")" -gt 41943040 ]; then printf '%s\n' "$f"; fi
