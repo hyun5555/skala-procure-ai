@@ -28,12 +28,17 @@ const props = defineProps({
   course: { type: Object, required: true }
 })
 
+// 키가 **화면 라벨**이다(enum 아님). store/course.js 의 categoryLabelMap 값과
+// 철자까지 같아야 한다. 빠지면 회색 배지 + 썸네일 없음으로 떨어진다.
 const categoryConfig = {
-  '백엔드':    { bg: 'thumb-teal',   badge: 'badge-teal',   thumb: 'spring_boot' },
-  '프론트엔드':{ bg: 'thumb-teal',   badge: 'badge-teal',   thumb: 'vue_js' },
-  'DevOps':   { bg: 'thumb-blue',   badge: 'badge-blue',   thumb: 'docker' },
-  '데이터':   { bg: 'thumb-purple', badge: 'badge-purple', thumb: 'python' },
-  'AI':       { bg: 'thumb-pink',   badge: 'badge-pink',   thumb: 'generative_ai' },
+  'SUS304':             { bg: 'thumb-teal',   badge: 'badge-teal',   thumb: 'spring_boot' },
+  'SUS316':             { bg: 'thumb-teal',   badge: 'badge-teal',   thumb: 'spring_boot' },
+  'AL6061':             { bg: 'thumb-blue',   badge: 'badge-blue',   thumb: 'kubernetes' },
+  '탄소강':             { bg: 'thumb-blue',   badge: 'badge-blue',   thumb: 'docker' },
+  '황동':               { bg: 'thumb-amber',  badge: 'badge-purple', thumb: 'python' },
+  '티타늄':             { bg: 'thumb-purple', badge: 'badge-purple', thumb: 'vue_js' },
+  '엔지니어링플라스틱': { bg: 'thumb-pink',   badge: 'badge-pink',   thumb: 'generative_ai' },
+  '기타':               { bg: 'thumb-gray',   badge: 'badge-gray',   thumb: 'python' },
 }
 
 const config = computed(() => categoryConfig[props.course.category] || { bg: 'thumb-gray', badge: 'badge-gray' })

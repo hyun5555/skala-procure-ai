@@ -9,15 +9,28 @@ export const useCourseStore = defineStore('course', () => {
   const error = ref(null)
   const selectedCategory = ref('전체')
 
-  const categories = ['전체', '백엔드', '프론트엔드', 'DevOps', '데이터', 'AI']
+  const categories = [
+    '전체', 'SUS304', 'SUS316', 'AL6061', '탄소강', '황동', '티타늄', '엔지니어링플라스틱', '기타'
+  ]
 
-  // 백엔드 카테고리 → 프론트 표시용 카테고리
+  // 백엔드 enum → 화면 표시용 소재 계열
+  //
+  // 백엔드 Course.Category 는 8칸 고정 enum 이고 값 자체에 의미가 없다.
+  // 소재 계열을 이 슬롯에 배정하고 화면 라벨만 여기서 바꾼다.
+  // enum 값을 바꾸려면 자바 수정과 재빌드가 필요하므로 그렇게 하지 않는다.
+  //
+  // **8칸을 빠짐없이 채운다.** 없는 키는 normalizeCategory 가 원본을 그대로
+  // 반환해서 화면에 영문 enum 이 노출된다. 원본이 그 상태였다 --
+  // DATA/AI 는 백엔드에 없는 키였고 DATA_SCIENCE 등 5개는 매핑이 없었다.
   const categoryLabelMap = {
-    BACKEND: '백엔드',
-    FRONTEND: '프론트엔드',
-    DEVOPS: 'DevOps',
-    DATA: '데이터',
-    AI: 'AI'
+    BACKEND: 'SUS304',
+    FRONTEND: 'SUS316',
+    DEVOPS: 'AL6061',
+    DATA_SCIENCE: '탄소강',
+    MOBILE: '황동',
+    SECURITY: '티타늄',
+    DATABASE: '엔지니어링플라스틱',
+    OTHER: '기타'
   }
 
   // 썸네일 이미지 매핑
@@ -30,12 +43,17 @@ export const useCourseStore = defineStore('course', () => {
     AI: new URL('../assets/images/courses/generative_ai.png', import.meta.url).href,
   }
 
+  // 키가 **화면 라벨**이다(enum 아님). categoryLabelMap 의 값과 철자까지 같아야 한다.
+  // 이미지가 6개뿐이라 계열끼리 재사용한다.
   const categoryThumbnailMap = {
-    '백엔드': thumbnailMap.SPRING,
-    '프론트엔드': thumbnailMap.VUE,
-    'DevOps': thumbnailMap.KUBERNETES,
-    '데이터': thumbnailMap.PYTHON,
-    'AI': thumbnailMap.AI
+    'SUS304': thumbnailMap.SPRING,
+    'SUS316': thumbnailMap.SPRING,
+    'AL6061': thumbnailMap.KUBERNETES,
+    '탄소강': thumbnailMap.DOCKER,
+    '황동': thumbnailMap.PYTHON,
+    '티타늄': thumbnailMap.VUE,
+    '엔지니어링플라스틱': thumbnailMap.AI,
+    '기타': thumbnailMap.PYTHON
   }
 
   function normalizeCategory(category) {

@@ -154,11 +154,17 @@ const validationError = ref('')
 const submitError = ref('')
 const submitSuccess = ref('')
 
+// label 은 화면 문구, value 는 **백엔드 enum** 이다.
+// value 를 새 값으로 바꾸면 저장 시 서버가 거부한다. label 만 바꾼다.
 const categoryOptions = [
-  { label: '백엔드', value: 'BACKEND' },
-  { label: '프론트엔드', value: 'FRONTEND' },
-  { label: 'DevOps', value: 'DEVOPS' },
-  { label: 'AI / 데이터', value: 'DATA_SCIENCE' }
+  { label: 'SUS304', value: 'BACKEND' },
+  { label: 'SUS316', value: 'FRONTEND' },
+  { label: 'AL6061', value: 'DEVOPS' },
+  { label: '탄소강', value: 'DATA_SCIENCE' },
+  { label: '황동', value: 'MOBILE' },
+  { label: '티타늄', value: 'SECURITY' },
+  { label: '엔지니어링플라스틱', value: 'DATABASE' },
+  { label: '기타', value: 'OTHER' }
 ]
 
 function handleLogout() {

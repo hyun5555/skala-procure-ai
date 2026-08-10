@@ -62,7 +62,7 @@
                   item.status === 'ACTIVE' ? 'status-active' : 'status-pending'
                 ]"
               >
-                {{ item.status === 'ACTIVE' ? '수강 중' : '대기 중' }}
+                {{ item.status === 'ACTIVE' ? '주문 확정' : '결제 대기' }}
               </span>
               <router-link :to="`/courses/${item.courseId}`" class="btn btn-ghost btn-sm">
                 강의 보기

@@ -86,12 +86,16 @@ const course = computed(() => courseStore.selectedCourse)
 const loading = computed(() => courseStore.loading)
 const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
 
+// CourseCard.vue 와 같은 표다. 두 곳이 어긋나면 목록과 상세의 색이 달라진다.
 const categoryConfig = {
-  '백엔드': { badge: 'badge-teal', bg: 'thumb-teal', thumb: 'spring_boot' },
-  '프론트엔드': { badge: 'badge-teal', bg: 'thumb-teal', thumb: 'vue_js' },
-  'DevOps': { badge: 'badge-blue', bg: 'thumb-blue', thumb: 'kubernetes' },
-  '데이터': { badge: 'badge-purple', bg: 'thumb-purple', thumb: 'python' },
-  'AI': { badge: 'badge-pink', bg: 'thumb-pink', thumb: 'generative_ai' },
+  'SUS304': { badge: 'badge-teal', bg: 'thumb-teal', thumb: 'spring_boot' },
+  'SUS316': { badge: 'badge-teal', bg: 'thumb-teal', thumb: 'spring_boot' },
+  'AL6061': { badge: 'badge-blue', bg: 'thumb-blue', thumb: 'kubernetes' },
+  '탄소강': { badge: 'badge-blue', bg: 'thumb-blue', thumb: 'docker' },
+  '황동': { badge: 'badge-purple', bg: 'thumb-amber', thumb: 'python' },
+  '티타늄': { badge: 'badge-purple', bg: 'thumb-purple', thumb: 'vue_js' },
+  '엔지니어링플라스틱': { badge: 'badge-pink', bg: 'thumb-pink', thumb: 'generative_ai' },
+  '기타': { badge: 'badge-gray', bg: 'thumb-gray', thumb: 'python' },
 }
 
 const config = computed(() => categoryConfig[course.value?.category] || {})
