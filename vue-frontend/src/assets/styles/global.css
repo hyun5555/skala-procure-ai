@@ -142,3 +142,58 @@ img {
 .badge-purple { background: #EEEDFE; color: #534AB7; }
 .badge-pink   { background: #FBEAF0; color: #993556; }
 .badge-gray   { background: #F1EFE8; color: #5F5E5A; }
+
+/* ── 공통 페이지 레이아웃 ────────────────────────────────
+   화면마다 page-wrapper / main-content / page-heading 을 각자 정의하면
+   폭과 여백이 조금씩 달라진다. 실제로 CourseListView(1200px)와
+   CourseCreateView(980px)가 이미 어긋나 있었다.
+
+   여기 정의를 기준으로 삼는다. 기존 화면의 scoped 규칙이 우선순위가 높아
+   당장은 각자 값을 유지하고, 옮길 때 scoped 정의를 지우면 이 값이 적용된다.
+
+   사용법:
+     <div class="page-wrapper">
+       <AppHeader />
+       <main class="main-content">          폭 1200px
+       <main class="main-content narrow">   폭 980px (폼 화면)
+*/
+/*
+  display 를 여기서 지정하는 이유:
+  각 화면의 scoped .page-wrapper 는 min-height 와 background 만 정의하고
+  display 는 건드리지 않는다. CSS 우선순위는 속성 단위로 적용되므로
+  여기 display 를 두면 scoped 정의를 그대로 두고도 전 화면에 먹는다.
+
+  flex column 이라야 AppFooter 의 margin-top:auto 가 동작해서
+  내용이 짧은 화면에서도 푸터가 바닥에 붙는다.
+*/
+.page-wrapper {
+  min-height: 100vh;
+  background: var(--color-bg-secondary);
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content { max-width: 1200px; margin: 0 auto; padding: 44px 24px 80px; }
+.main-content.narrow { max-width: 980px; padding: 36px 24px 70px; }
+
+.page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+.page-heading .eyebrow {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  color: var(--color-primary);
+}
+.page-heading h1 { font-size: 28px; margin-top: 5px; }
+.page-heading p { font-size: 13px; color: var(--color-text-muted); margin-top: 5px; }
+
+@media (max-width: 680px) {
+  .main-content { padding: 26px 16px 60px; }
+  .page-heading { flex-direction: column; align-items: flex-start; gap: 15px; }
+}

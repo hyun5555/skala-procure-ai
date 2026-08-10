@@ -37,6 +37,8 @@
         <div class="form-actions"><router-link to="/mypage" class="btn btn-ghost">취소</router-link><button class="btn btn-primary" :disabled="submitting">{{ submitting ? '등록 중...' : '조달 품목 등록' }}</button></div>
       </form>
     </main>
+
+    <AppFooter />
   </div>
 </template>
 
@@ -44,6 +46,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
+import AppFooter from '@/components/AppFooter.vue'
 import RegionMultiSelect from '@/components/RegionMultiSelect.vue'
 import { courseApi } from '@/api/course.js'
 import { useAuthStore } from '@/store/auth.js'

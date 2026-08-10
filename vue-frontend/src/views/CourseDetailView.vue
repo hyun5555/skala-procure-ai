@@ -29,6 +29,8 @@
     </main>
     <div v-else-if="loading" class="loading-center"><div class="spinner"></div></div>
     <div v-else class="loading-center">조달 품목 정보를 불러오지 못했습니다.</div>
+
+    <AppFooter />
   </div>
 </template>
 
@@ -36,6 +38,7 @@
 import { computed,onMounted,ref } from 'vue'
 import { useRoute,useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
+import AppFooter from '@/components/AppFooter.vue'
 import { useCourseStore } from '@/store/course.js'
 import { enrollmentApi } from '@/api/enrollment.js'
 import { useAuthStore } from '@/store/auth.js'
