@@ -30,3 +30,9 @@ out/
 # 백업 파일. 원본이 필요하면 git 이력에서 꺼낸다.
 *.bak
 *.orig
+
+# 조달 원본 CSV. 84,180행 33MB 라 커밋하면 이력에서 뺄 수 없다.
+# 추린 init-db/Data.csv 만 커밋하고 원본은 각자 로컬에 둔다.
+# 다시 추리려면 scripts/sample-dataset.py 를 쓴다.
+프로젝트용_산업자재_공급업체_정리.csv
+init-db/Data.full.csv
