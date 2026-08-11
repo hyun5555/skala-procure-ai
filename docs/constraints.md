@@ -196,3 +196,76 @@ springdoc 경로가 커스터마이즈되어 있어 기본값 `/v3/api-docs` 가
 | 2026-08-10 | 기획안 ↔ enrollment-service | 기획안은 주문별 금액(480만원 등)을 전제하지만 코드는 99,000원 고정 | 미결 — Sprint1 Planning에서 결정 |
 | 2026-08-10 | 기획안 ↔ recommend-service | 기획안 7.2의 `추천점수`·`추천 해석` 이 `RecommendResponse` 에 없음 | Sprint2 작업으로 계획 |
 | 2026-08-10 | 기획안 ↔ API | 기획안 7.3의 품질검사 등록에 해당하는 엔드포인트가 없음 | Sprint2 작업으로 계획 |
+| 2026-08-11 | SecurityConfig 주석 ↔ 실제 토큰 | 네 서비스가 전부 `permitAll` 이라 개별 포트로 인증을 우회할 수 있다. 주석 처리된 리소스 서버 설정을 켜면 issuer 불일치로 전면 401 | 미결 — Sprint1 범위 밖. 아래 참조 |
+
+### 서비스 인증이 게이트웨이 한 곳에만 있다
+
+발견일 2026-08-11. 개별 포트가 호스트에 열려 있어 **게이트웨이를 거치지 않으면 인증이 없다.**
+
+```bash
+curl http://localhost:8081/api/users/1
+→ {"success":true,"message":"성공","data":{"id":1,"email":"student@lecture.com","name":"홍길동","role":"STUDENT"}}
+```
+
+토큰 없이 남의 계정 정보가 나온다. `/api/users/me` 는 게이트웨이가 넣어주는 `X-User-Id` 를 그대로 믿으므로 헤더를 직접 붙이면 아무 사용자로도 조회된다.
+
+네 서비스의 현재 설정이다.
+
+```text
+user-service       SecurityConfig.java:36  .anyRequest().permitAll()
+course-service     SecurityConfig.java:29  .anyRequest().permitAll()
+enrollment-service SecurityConfig.java:28  .anyRequest().permitAll()
+payment-service    SecurityConfig.java:28  .anyRequest().permitAll()
+```
+
+`user-service/src/main/java/com/lecture/user/config/SecurityConfig.java` 41~83행에 더 엄격한 설정이 통째로 주석 처리되어 있다. 원문이다.
+
+```java
+//             .authorizeHttpRequests(auth -> auth
+//                 // 회원가입은 인증 불필요
+//                 .requestMatchers("/api/users/register").permitAll()
+//                 .requestMatchers(
+//                     "/api-docs/**",
+//                     "/swagger-ui/**",
+//                     "/swagger-ui.html"
+//                 ).permitAll()
+//                 // 내부 서비스 호출 (Client Credentials)
+//                 .requestMatchers("/api/users/internal/**").hasAuthority("SCOPE_service.read")
+//                 // 나머지는 인증 필요
+//                 .anyRequest().authenticated()
+//             )
+//             .oauth2ResourceServer(oauth2 -> oauth2
+//                 .jwt(jwt -> {}) // application.yml jwk-set-uri 사용
+//             );
+```
+
+**이 주석을 그대로 풀면 로그인 전체가 죽는다.** issuer 가 어긋나 있다.
+
+`docker-compose.yml` 147행이 주입하는 값이다.
+
+```yaml
+- SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://auth-server:9000
+```
+
+실제 발급된 액세스 토큰의 페이로드다.
+
+```json
+{"sub":"18","aud":"web-client","nbf":1786408659,"role":"STUDENT","user_id":18,
+ "scope":["read","openid","profile","write"],"iss":"http://localhost:8080",
+ "name":"검증계정","exp":1786412259,"iat":1786408659,"email":"verify-92797@t.local"}
+```
+
+`iss` 가 게이트웨이 주소인 `http://localhost:8080` 이다. 게이트웨이를 경유해 발급받기 때문이며 auth-server 이미지 동작이라 바꿀 수 없다. 설정값과 다르므로 리소스 서버를 켜는 즉시 모든 요청이 401 이 된다.
+
+`jwk-set-uri` 는 문제가 아니다. yml 의 `http://localhost:9000` 은 컨테이너 안에서 닿지 않지만 `docker-compose.yml` 146행이 `http://auth-server:9000/oauth2/jwks` 로 덮어쓴다. 컨테이너 내부에서 확인했다.
+
+```text
+wget http://localhost:9000/oauth2/jwks    → Connection refused
+wget http://auth-server:9000/oauth2/jwks  → {"keys":[{"kty":"RSA",...
+```
+
+**확인하지 못한 것** — 게이트웨이가 하위 서비스로 `Authorization` 헤더를 전달하는지 모른다. 게이트웨이는 소스가 없고, 네 서비스가 전부 `permitAll` 이라 간접 확인도 되지 않는다. 전달하지 않는다면 issuer 를 맞춰도 `.anyRequest().authenticated()` 에서 전부 401 이 된다. 컨트롤러에 헤더 로깅을 임시로 넣고 한 번 호출하면 알 수 있다.
+
+주석 블록이 보호하려는 `/api/users/internal/**` 는 **현재 호출하는 곳이 없다.** `course-service/src/main/resources/application.yml` 에 `user-service.url` 설정만 있고 실제 호출 코드는 없다.
+
+Sprint1 은 한 흐름을 끝까지 동작시키는 것이므로 이 항목은 범위 밖으로 둔다. **모르고 넘어간 것이 아니라 알고 미룬 것이다.**
