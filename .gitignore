@@ -36,3 +36,7 @@ out/
 # 다시 추리려면 scripts/sample-dataset.py 를 쓴다.
 프로젝트용_산업자재_공급업체_정리.csv
 init-db/Data.full.csv
+
+# 파이썬 바이트코드 캐시. 로컬 실행 산출물이라 커밋하지 않는다
+__pycache__/
+*.pyc

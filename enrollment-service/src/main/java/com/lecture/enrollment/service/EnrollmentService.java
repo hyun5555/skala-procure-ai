@@ -148,6 +148,65 @@ public class EnrollmentService {
     }
 
     /**
+     * 공급성과 평가 등록 (QCD)
+     *
+     * 납품이 끝난 뒤 구매기업이 발주 관리 화면의 지난 발주에 입력한다.
+     * 등록하면 그 공급기업의 누적 지표가 갱신되고 다음 추천에 반영된다.
+     * 기획안의 핵심 차별점인 피드백 구조가 여기서 닫힌다.
+     *
+     * ACTIVE 인 발주만 평가할 수 있다. 결제가 끝나지 않았거나 취소한 주문은
+     * 납품 자체가 없으므로 평가할 대상이 아니다.
+     *
+     * 다시 평가하는 것은 막는다. 같은 발주를 두 번 등록하면 누적 지표에 두 번
+     * 반영되어 공급기업 성과가 왜곡된다. 고쳐야 한다면 수정 API 를 따로 만들고
+     * 이전 값을 빼는 처리를 함께 넣어야 한다.
+     */
+    @Transactional
+    public EnrollmentDto.EnrollmentResponse evaluate(
+            Long userId, Long enrollmentId, EnrollmentDto.PerformanceRequest request) {
+
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new IllegalArgumentException("발주를 찾을 수 없습니다: " + enrollmentId));
+
+        if (!enrollment.getUserId().equals(userId)) {
+            throw new AccessDeniedException("자신의 발주만 평가할 수 있습니다");
+        }
+
+        if (enrollment.getStatus() != Enrollment.Status.ACTIVE) {
+            throw new IllegalArgumentException(
+                    "주문이 확정된 발주만 평가할 수 있습니다. 현재 상태: " + enrollment.getStatus());
+        }
+
+        if (enrollment.isEvaluated()) {
+            throw new IllegalArgumentException("이미 평가한 발주입니다");
+        }
+
+        if (request.getDefectQty() > request.getDeliveredQty()) {
+            throw new IllegalArgumentException("불량수량이 납품수량보다 많을 수 없습니다");
+        }
+
+        enrollment.evaluate(
+                request.getDeliveredQty(),
+                request.getDefectQty(),
+                request.getDefectType(),
+                request.getActualDeliveryDate(),
+                request.getActualAmount());
+
+        courseServiceClient.applyPerformance(
+                enrollment.getCourseId(),
+                enrollment.getDeliveredQty(),
+                enrollment.getDefectQty(),
+                enrollment.getOnTime(),
+                enrollment.getEstimatedTotal(),
+                enrollment.getActualAmount());
+
+        log.info("[EnrollmentService] 공급성과 평가 등록 - enrollmentId: {}, 불량률: {}%, 납기준수: {}",
+                enrollmentId, enrollment.getDefectRate(), enrollment.getOnTime());
+
+        return EnrollmentDto.EnrollmentResponse.from(enrollment);
+    }
+
+    /**
      * 사용자 수강 목록 조회
      * - course-service에서 강의 상세 정보를 붙여서 반환
      */
@@ -178,6 +237,10 @@ public class EnrollmentService {
                                             courseInfo.get("enrollment_count")
                                     )
                             ))
+                            .defectRate(toNullableBigDecimal(courseInfo.get("defectRate")))
+                            .onTimeRate(toNullableBigDecimal(courseInfo.get("onTimeRate")))
+                            .costVarianceRate(toNullableBigDecimal(courseInfo.get("costVarianceRate")))
+                            .evaluatedCount(toInteger(courseInfo.get("evaluatedCount")))
                             .build();
 
                     return EnrollmentDto.EnrollmentResponse.from(enrollment, courseSummary);
@@ -224,6 +287,11 @@ public class EnrollmentService {
         if (value == null) return null;
         if (value instanceof Number number) return number.intValue();
         return Integer.parseInt(value.toString());
+    }
+
+    private BigDecimal toNullableBigDecimal(Object value) {
+        if (value == null) return null;
+        return value instanceof BigDecimal decimal ? decimal : new BigDecimal(value.toString());
     }
 
     private BigDecimal toBigDecimal(Object value) {

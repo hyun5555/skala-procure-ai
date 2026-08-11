@@ -116,6 +116,19 @@ public class CourseController {
     }
 
     /**
+     * POST /courses/internal/{id}/performance - 공급성과 누적
+     * Enrollment Service 가 평가 등록 시 호출한다
+     */
+    @PostMapping("/internal/{id}/performance")
+    public ResponseEntity<Void> applyPerformance(
+            @PathVariable Long id,
+            @RequestBody CourseDto.InternalPerformanceRequest request) {
+
+        courseService.applyPerformance(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
      * GET /courses/internal/recommend - 추천 서비스용 미수강 강의 조회
      * category: 카테고리, excludeIds: 이미 수강한 강의 ID 목록
      */

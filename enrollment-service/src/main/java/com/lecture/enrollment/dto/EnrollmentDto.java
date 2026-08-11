@@ -5,6 +5,7 @@ import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -83,6 +84,72 @@ public class EnrollmentDto {
         }
     }
 
+    // 공급성과 평가 등록 요청 (납품 후 구매기업이 지난 발주에 입력한다)
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class PerformanceRequest {
+        // Quality
+        @NotNull(message = "납품수량은 필수입니다")
+        @Positive(message = "납품수량은 1 이상이어야 합니다")
+        private Long deliveredQty;
+
+        @NotNull(message = "불량수량은 필수입니다")
+        @PositiveOrZero(message = "불량수량은 0 이상이어야 합니다")
+        private Long defectQty;
+
+        // 불량이 없으면 비워 둘 수 있다
+        @Size(max = 100, message = "불량유형은 100자 이내여야 합니다")
+        private String defectType;
+
+        // Delivery — 희망 납품일은 발주 때 이미 받았으므로 실제 납품일만 받는다
+        @NotNull(message = "실제 납품일은 필수입니다")
+        private LocalDate actualDeliveryDate;
+
+        // Cost — 선택. 비우면 비용 축은 평가하지 않는다
+        @PositiveOrZero(message = "실제 청구금액은 0 이상이어야 합니다")
+        private BigDecimal actualAmount;
+    }
+
+    // 공급성과 평가 결과 (평가 전에는 null)
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class PerformanceResponse {
+        private Long deliveredQty;
+        private Long defectQty;
+        private String defectType;
+        private BigDecimal defectRate;
+        private LocalDate deliveryDate;        // 희망 (발주 시)
+        private LocalDate actualDeliveryDate;  // 실제
+        private Boolean onTime;
+        private Integer delayDays;
+        private BigDecimal estimatedTotal;     // 견적
+        private BigDecimal actualAmount;       // 실제 청구
+        private LocalDateTime evaluatedAt;
+
+        public static PerformanceResponse from(Enrollment enrollment) {
+            if (!enrollment.isEvaluated()) {
+                return null;
+            }
+            return PerformanceResponse.builder()
+                    .deliveredQty(enrollment.getDeliveredQty())
+                    .defectQty(enrollment.getDefectQty())
+                    .defectType(enrollment.getDefectType())
+                    .defectRate(enrollment.getDefectRate())
+                    .deliveryDate(enrollment.getDeliveryDate())
+                    .actualDeliveryDate(enrollment.getActualDeliveryDate())
+                    .onTime(enrollment.getOnTime())
+                    .delayDays(enrollment.getDelayDays())
+                    .estimatedTotal(enrollment.getEstimatedTotal())
+                    .actualAmount(enrollment.getActualAmount())
+                    .evaluatedAt(enrollment.getEvaluatedAt())
+                    .build();
+        }
+    }
+
     // 강의 요약 정보 (내 수강 목록 표시용)
     @Getter
     @NoArgsConstructor
@@ -97,6 +164,11 @@ public class EnrollmentDto {
         private String thumbnail;
         private String instructorName;
         private Integer enrollmentCount;
+        // 이 품목을 등록한 공급기업의 누적 성과지표
+        private BigDecimal defectRate;
+        private BigDecimal onTimeRate;
+        private BigDecimal costVarianceRate;
+        private Integer evaluatedCount;
     }
 
     // 수강 응답
@@ -111,6 +183,7 @@ public class EnrollmentDto {
         private Enrollment.Status status;
         private LocalDateTime createdAt;
         private OrderRequestResponse orderRequest;
+        private PerformanceResponse performance;
 
         // 추가
         private CourseSummary course;
@@ -123,6 +196,7 @@ public class EnrollmentDto {
                     .status(enrollment.getStatus())
                     .createdAt(enrollment.getCreatedAt())
                     .orderRequest(OrderRequestResponse.from(enrollment))
+                    .performance(PerformanceResponse.from(enrollment))
                     .build();
         }
 
@@ -135,6 +209,7 @@ public class EnrollmentDto {
                     .createdAt(enrollment.getCreatedAt())
                     .course(course)
                     .orderRequest(OrderRequestResponse.from(enrollment))
+                    .performance(PerformanceResponse.from(enrollment))
                     .build();
         }
     }

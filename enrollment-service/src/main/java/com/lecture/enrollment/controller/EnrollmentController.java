@@ -60,6 +60,21 @@ public class EnrollmentController {
     }
 
     /**
+     * PATCH /enrollments/{id}/performance - 공급성과 평가 등록 (QCD)
+     * 납품 후 구매기업이 발주 관리 화면의 지난 발주에 입력한다.
+     * Gateway가 전달한 X-User-Id 로 발주자를 대조한다.
+     */
+    @PatchMapping("/{id}/performance")
+    public ResponseEntity<EnrollmentDto.ApiResponse<EnrollmentDto.EnrollmentResponse>> evaluate(
+            @PathVariable Long id,
+            @Valid @RequestBody EnrollmentDto.PerformanceRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
+
+        EnrollmentDto.EnrollmentResponse response = enrollmentService.evaluate(userId, id, request);
+        return ResponseEntity.ok(EnrollmentDto.ApiResponse.success(response));
+    }
+
+    /**
      * GET /enrollments/user/{userId} - 특정 사용자 수강 목록 조회
      */
     @GetMapping("/user/{userId}")

@@ -1,11 +1,14 @@
 package com.lecture.enrollment.service;
 
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 @Slf4j
@@ -126,6 +129,53 @@ public class CourseServiceClient {
         } catch (Exception e) {
             log.error("[CourseServiceClient] 거래건수 감소 실패 - courseId: {}, error: {}",
                     courseId, e.getMessage());
+        }
+    }
+
+    /**
+     * Course Service: 공급성과 누적 (평가 등록 시)
+     *
+     * 여기는 예외를 던진다. 거래건수와 달리 이 값은 기획안의 핵심 차별점인
+     * 추천 근거로 쓰인다. 조용히 실패하면 평가는 등록됐는데 지표에는 반영되지 않아
+     * 두 값이 어긋난 채로 남는다. 실패를 알려 재시도할 수 있게 한다.
+     */
+    public void applyPerformance(Long courseId, Long deliveredQty, Long defectQty, Boolean onTime,
+                                 BigDecimal estimatedAmount, BigDecimal actualAmount) {
+        try {
+            webClientBuilder.build()
+                    .post()
+                    .uri("http://course-service/api/courses/internal/{id}/performance", courseId)
+                    .bodyValue(new PerformanceRequest(deliveredQty, defectQty, onTime,
+                            estimatedAmount, actualAmount))
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+
+            log.info("[CourseServiceClient] 공급성과 누적 완료 - courseId: {}, 납품 {}, 불량 {}, 납기준수 {}",
+                    courseId, deliveredQty, defectQty, onTime);
+        } catch (Exception e) {
+            log.error("[CourseServiceClient] 공급성과 누적 실패 - courseId: {}, error: {}",
+                    courseId, e.getMessage());
+            throw new RuntimeException("공급성과를 공급기업 지표에 반영하지 못했습니다");
+        }
+    }
+
+    @Getter
+    @NoArgsConstructor
+    static class PerformanceRequest {
+        private Long deliveredQty;
+        private Long defectQty;
+        private Boolean onTime;
+        private BigDecimal estimatedAmount;
+        private BigDecimal actualAmount;
+
+        PerformanceRequest(Long deliveredQty, Long defectQty, Boolean onTime,
+                           BigDecimal estimatedAmount, BigDecimal actualAmount) {
+            this.deliveredQty = deliveredQty;
+            this.defectQty = defectQty;
+            this.onTime = onTime;
+            this.estimatedAmount = estimatedAmount;
+            this.actualAmount = actualAmount;
         }
     }
 }

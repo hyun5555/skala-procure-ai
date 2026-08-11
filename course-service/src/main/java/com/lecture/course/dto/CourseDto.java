@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -31,6 +32,9 @@ public class CourseDto {
         @NotNull(message = "가격은 필수입니다")
         @PositiveOrZero(message = "가격은 0 이상이어야 합니다")
         private BigDecimal price;
+
+        // 조달 계약 종료일. 비우면 만료 판정을 하지 않는다
+        private LocalDate contractEnd;
     }
 
     // 품목 수정 요청
@@ -56,6 +60,9 @@ public class CourseDto {
         @NotNull(message = "가격은 필수입니다")
         @PositiveOrZero(message = "가격은 0 이상이어야 합니다")
         private BigDecimal price;
+
+        // 조달 계약 종료일. 비우면 만료 판정을 하지 않는다
+        private LocalDate contractEnd;
     }
 
     // 강의 응답
@@ -72,6 +79,12 @@ public class CourseDto {
         private Long instructorId;
         private String instructorName;
         private Integer enrollmentCount;
+        // 공급기업 누적 성과지표. 평가 이력이 없으면 null 이다
+        private LocalDate contractEnd;
+        private BigDecimal defectRate;
+        private BigDecimal onTimeRate;
+        private BigDecimal costVarianceRate;
+        private Integer evaluatedCount;
         private Course.Status status;
         private LocalDateTime createdAt;
 
@@ -85,10 +98,30 @@ public class CourseDto {
                     .instructorId(course.getInstructorId())
                     .instructorName(course.getInstructorName())
                     .enrollmentCount(course.getEnrollmentCount())
+                    .contractEnd(course.getContractEnd())
+                    .defectRate(course.getDefectRate())
+                    .onTimeRate(course.getOnTimeRate())
+                    .costVarianceRate(course.getCostVarianceRate())
+                    .evaluatedCount(course.getEvaluatedCount())
                     .status(course.getStatus())
                     .createdAt(course.getCreatedAt())
                     .build();
         }
+    }
+
+    // 내부 서비스 성과 누적 요청 (Enrollment Service → Course Service)
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class InternalPerformanceRequest {
+        private Long deliveredQty;
+        private Long defectQty;
+        // 납기를 판정할 수 없었으면 null. 그 건은 납기 통계에서 제외한다
+        private Boolean onTime;
+        // 비용은 실제 청구금액을 적어 낸 건만 쌓는다. 둘 중 하나라도 null 이면 건너뛴다
+        private BigDecimal estimatedAmount;
+        private BigDecimal actualAmount;
     }
 
     // 공통 API 응답 래퍼

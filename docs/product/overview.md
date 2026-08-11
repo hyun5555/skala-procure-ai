@@ -73,11 +73,11 @@ MVP 예시이며 산업 표준이 아니다. 실제 서비스에서는 구매기
 | --- | --- |
 | user-service | 구매기업·공급기업 회원 및 권한 |
 | course-service | 소재·가공 서비스 (Product) |
-| enrollment-service | 견적·발주·주문 (Order) + 품질검사(Sprint2) |
+| enrollment-service | 견적·발주·주문 (Order) + 공급성과 평가(Sprint2) |
 | payment-service | 주문 결제 |
 | recommend-service | 공급업체 매칭·추천 |
 
-**품질 기능을 별도 MSA로 만들지 않는다.** 게이트웨이에 새 경로를 만들 수 없고, 난이도도 올라간다. enrollment-service에 붙인다.
+**성과 평가 기능을 별도 MSA로 만들지 않는다.** 게이트웨이에 새 경로를 만들 수 없고, 난이도도 올라간다. enrollment-service에 붙인다.
 
 ## 서비스 흐름
 
@@ -88,7 +88,7 @@ MVP 예시이며 산업 표준이 아니다. 실제 서비스에서는 구매기
    ↓
 추천 근거 확인 → 발주 → 결제 → 주문 확정
    ↓
-납품 → 품질검사 등록 → 불량률 계산 → 공급업체 품질지표 갱신
+납품 → 공급성과 평가 등록 → 불량률·납기 준수 계산 → 공급업체 누적 지표 갱신
    ↓
 갱신된 데이터가 다음 추천에 반영
 ```
@@ -114,10 +114,11 @@ MVP 예시이며 산업 표준이 아니다. 실제 서비스에서는 구매기
 ### Sprint 2 — 품질·추천 확장
 
 - Kafka 흐름 시연 (이미 동작하므로 코드 변경 없음)
-- 품질검사 등록 — `PATCH /api/enrollments/{id}/quality` 신규
-- 불량률 자동 계산, 공급업체 품질지표 갱신
+- 공급성과 평가(QCD) 등록 — `PATCH /api/enrollments/{id}/performance` 신규
+- 불량률·납기 준수 자동 계산, 공급업체 누적 지표 갱신
 - 추천 응답에 `score` · `reason` · `scoreBreakdown` 추가
-- 품질 데이터를 추천 점수에 반영
+- 공급성과(QCD)를 추천 점수에 반영 — PPM 50 · OTD 30 · PPV 20. 평가 10건 이상인 공급기업만 실제 성과로 채운다
+- 계약이 끝난 품목은 목록·추천에서 제외 — 조달 등록 데이터는 계약기간이 지나면 발주할 수 없다
 
 가벼운 것부터 한다. recommend-service는 파이썬이라 손이 가장 가볍고, payment-service 확장이 가장 무겁다.
 
