@@ -137,7 +137,7 @@ BACKEND · FRONTEND · DEVOPS · DATA_SCIENCE · MOBILE · SECURITY · DATABASE 
 
 **이 값들은 의미 없는 슬롯으로 취급한다.** 프론트엔드가 화면 라벨로 변환해서 보여주므로 도메인 값을 여기에 배정하면 된다.
 
-라벨을 정의하는 곳이 네 군데이고, 서로 어긋나면 배지가 회색으로 떨어지거나 영문 enum이 화면에 그대로 노출된다.
+라벨을 정의하는 곳이 여섯 군데이고, 서로 어긋나면 배지가 회색으로 떨어지거나 영문 enum이 화면에 그대로 노출된다.
 
 | 파일 | 키 | 주의 |
 | --- | --- | --- |
@@ -146,6 +146,8 @@ BACKEND · FRONTEND · DEVOPS · DATA_SCIENCE · MOBILE · SECURITY · DATABASE 
 | `vue-frontend/src/store/course.js` `categoryThumbnailMap` | 화면 라벨 | 위에서 정한 라벨과 철자까지 같아야 한다 |
 | `vue-frontend/src/components/CourseCard.vue` `categoryConfig` | 화면 라벨 | 빠지면 회색 배지 + 썸네일 없음 |
 | `vue-frontend/src/views/CourseCreateView.vue` `categoryOptions` | `label`은 문구, `value`는 **enum** | value 를 새 값으로 바꾸지 않는다 |
+| `vue-frontend/src/utils/procurement.js` `productOptions` | 화면 라벨 | 검색 드롭다운. 여기 없는 품명은 고를 수가 없다 |
+| `scripts/seed-catalog.py` `PRODUCT_LABEL` | 화면 라벨 | `description` 의 `품명:` 에 무엇을 적을지. 드롭다운 라벨과 달라지면 그 선택지가 항상 0건이 된다 |
 
 원본 상태에서 이미 어긋나 있다. `categoryLabelMap` 에 백엔드에 없는 `DATA` 와 `AI` 키가 있고, 실제로 저장되는 `DATA_SCIENCE` `MOBILE` `SECURITY` `DATABASE` `OTHER` 는 매핑이 없다. **8칸을 채우면 이 결함이 함께 해소된다.**
 
