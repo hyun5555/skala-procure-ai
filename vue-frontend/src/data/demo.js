@@ -52,12 +52,24 @@ export function getDemoEnrollments() {
   return JSON.parse(sessionStorage.getItem('demo_enrollments') || '[]')
 }
 
-export function addDemoEnrollment(course) {
+export function saveOrderRequest(userId, courseId, orderRequest) {
+  const requests = JSON.parse(sessionStorage.getItem('order_requests') || '{}')
+  requests[`${userId}:${courseId}`] = orderRequest
+  sessionStorage.setItem('order_requests', JSON.stringify(requests))
+}
+
+export function getSavedOrderRequest(userId, courseId) {
+  const requests = JSON.parse(sessionStorage.getItem('order_requests') || '{}')
+  return requests[`${userId}:${courseId}`] || null
+}
+
+export function addDemoEnrollment(course, orderRequest = null) {
   const list = getDemoEnrollments()
   const existing = list.find(item => Number(item.courseId) === Number(course.id))
   if (existing) return existing
-  const enrollment = { id: Date.now(), userId: 9001, courseId: course.id, status: 'ACTIVE', createdAt: new Date().toISOString(), course }
+  const enrollment = { id: Date.now(), userId: 9001, courseId: course.id, status: 'ACTIVE', createdAt: new Date().toISOString(), course, orderRequest }
   list.unshift(enrollment)
   sessionStorage.setItem('demo_enrollments', JSON.stringify(list))
+  if (orderRequest) saveOrderRequest(9001, course.id, orderRequest)
   return enrollment
 }

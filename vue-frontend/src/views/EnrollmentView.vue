@@ -1,39 +1,7 @@
 <template>
   <div class="page-wrapper">
-    <AppHeader />
-    <div class="page-layout">
-      <aside class="sidebar">
-        <div class="sidebar-section">
-          <div class="sidebar-label">메뉴</div>
-
-          <router-link to="/courses" class="sidebar-item">
-            <span class="si-icon">⌕</span> 업체 매칭
-          </router-link>
-
-          <router-link
-            v-if="!isInstructor"
-            to="/enrollments"
-            class="sidebar-item active"
-          >
-            <span class="si-icon">▦</span> 발주 관리
-          </router-link>
-
-          <router-link to="/mypage" class="sidebar-item">
-            <span class="si-icon">◎</span> 추천 리포트
-          </router-link>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">계정</div>
-          <router-link to="/mypage" class="sidebar-item">
-            <span class="si-icon">👤</span> 마이페이지
-          </router-link>
-          <button class="sidebar-item sidebar-btn" @click="handleLogout">
-            <span class="si-icon">🚪</span> 로그아웃
-          </button>
-        </div>
-      </aside>
-
+    <div class="view-content" :inert="selectedEnrollment || undefined" :aria-hidden="selectedEnrollment ? 'true' : undefined">
+      <AppHeader />
       <main class="main-content">
         <div class="page-head"><span>ORDER MANAGEMENT</span><h1 class="page-title">발주·납품 관리</h1><p>발주 접수부터 결제, 생산·납품, 품질 데이터 반영까지 확인합니다.</p></div>
 
@@ -43,16 +11,21 @@
 
         <div v-else-if="enrollments.length" class="enrollment-list fade-in">
           <div v-for="item in enrollments" :key="item.id" class="enrollment-card">
-            <div class="enroll-thumb" :class="getThumbBg(item.course?.category)">
-              <span class="material-symbol">{{ item.course?.category?.charAt(0) || 'P' }}</span>
-            </div>
-
             <div class="enroll-info">
               <span class="badge" :class="getBadge(item.course?.category)">
                 {{ item.course?.category }}
               </span>
               <h3 class="enroll-title">{{ item.course?.title }}</h3>
-              <p class="enroll-instructor">공급기업: {{ item.course?.instructorName || '공급기업' }}</p>
+              <p class="enroll-instructor">
+                <span>공급기업: {{ item.course?.instructorName || '공급기업' }}</span>
+                <span v-if="item.orderRequest?.notes" class="request-note">요청사항: {{ item.orderRequest.notes }}</span>
+              </p>
+              <div v-if="item.orderRequest" class="request-summary">
+                <span>수량 {{ Number(item.orderRequest.quantity).toLocaleString() }}{{ item.orderRequest.unit }}</span>
+                <span>희망 납품일 {{ item.orderRequest.deliveryDate }}</span>
+                <span>납품 장소 {{ item.orderRequest.deliveryPlace }}</span>
+                <span v-if="item.orderRequest.contactName || item.orderRequest.contactPhone">담당자 {{ [item.orderRequest.contactName, item.orderRequest.contactPhone].filter(Boolean).join(' · ') }}</span>
+              </div>
             </div>
 
             <div class="enroll-status">
@@ -64,9 +37,9 @@
               >
                 {{ item.status === 'ACTIVE' ? '주문 확정' : '결제 대기' }}
               </span>
-              <router-link :to="`/courses/${item.courseId}`" class="btn btn-ghost btn-sm">
+              <button type="button" class="btn btn-ghost btn-sm" @click="openOrderDetail(item)">
                 발주 상세
-              </router-link>
+              </button>
             </div>
           </div>
         </div>
@@ -79,21 +52,51 @@
           </router-link>
         </div>
       </main>
+      <AppFooter />
     </div>
 
-    <AppFooter />
+    <Teleport to="body">
+      <div v-if="selectedEnrollment" class="detail-backdrop" @click.self="closeOrderDetail">
+        <section class="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+          <div class="detail-head">
+            <div><span>ORDER DETAIL</span><h2 id="detail-modal-title">발주 상세</h2></div>
+            <button ref="detailCloseButton" type="button" class="detail-close" aria-label="발주 상세 닫기" @click="closeOrderDetail">×</button>
+          </div>
+
+          <div class="detail-product">
+            <div><span>발주 품목</span><strong>{{ selectedEnrollment.course?.title }}</strong><small>{{ selectedEnrollment.course?.instructorName || '공급기업' }}</small></div>
+            <span :class="['status-badge',selectedEnrollment.status==='ACTIVE'?'status-active':'status-pending']">{{ selectedEnrollment.status==='ACTIVE'?'주문 확정':'결제 대기' }}</span>
+          </div>
+
+          <div v-if="selectedEnrollment.orderRequest" class="detail-fields">
+            <article><span>발주 수량</span><strong>{{ Number(selectedEnrollment.orderRequest.quantity).toLocaleString() }}{{ selectedEnrollment.orderRequest.unit }}</strong></article>
+            <article><span>예상 견적 금액</span><strong>{{ Number(selectedEnrollment.orderRequest.estimatedTotal || 0).toLocaleString() }}원</strong></article>
+            <article><span>희망 납품일</span><strong>{{ selectedEnrollment.orderRequest.deliveryDate }}</strong></article>
+            <article><span>납품 장소</span><strong>{{ selectedEnrollment.orderRequest.deliveryPlace }}</strong></article>
+            <article class="detail-wide"><span>요청사항</span><p>{{ selectedEnrollment.orderRequest.notes || '별도 요청사항 없음' }}</p></article>
+            <div class="detail-section-title detail-wide">담당자 정보</div>
+            <article><span>담당자명</span><strong>{{ selectedEnrollment.orderRequest.contactName }}</strong></article>
+            <article><span>연락처</span><strong>{{ selectedEnrollment.orderRequest.contactPhone }}</strong></article>
+          </div>
+          <div v-else class="missing-detail"><b>입력 상세정보가 없습니다.</b><p>현재 서버에 저장된 기존 발주는 품목과 주문 상태만 확인할 수 있습니다.</p></div>
+
+          <div class="detail-meta"><span>발주번호 #{{ selectedEnrollment.id }}</span><span>접수일 {{ formatCreatedAt(selectedEnrollment.createdAt) }}</span></div>
+          <div class="detail-actions"><button type="button" class="btn btn-primary" @click="closeOrderDetail">확인</button></div>
+        </section>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import { enrollmentApi } from '@/api/enrollment.js'
 import { useAuthStore } from '@/store/auth.js'
 import { useCourseStore } from '@/store/course.js'
-import { getDemoEnrollments } from '@/data/demo.js'
+import { getDemoEnrollments, getSavedOrderRequest } from '@/data/demo.js'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -101,6 +104,10 @@ const courseStore = useCourseStore()
 
 const enrollments = ref([])
 const loading = ref(true)
+const selectedEnrollment = ref(null)
+const detailCloseButton = ref(null)
+let bodyOverflowBeforeModal = ''
+let focusedElementBeforeModal = null
 
 const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
 
@@ -111,17 +118,39 @@ const categoryConfig = {
   '주철제관이음': { bg: 'thumb-pink', badge: 'badge-pink' }, '기타 관류': { bg: 'thumb-gray', badge: 'badge-gray' }
 }
 
-function getThumbBg(cat) {
-  return categoryConfig[cat]?.bg || 'thumb-gray'
-}
-
 function getBadge(cat) {
   return categoryConfig[cat]?.badge || 'badge-gray'
 }
 
-function handleLogout() {
-  auth.logout()
-  router.push('/')
+function normalizeEnrollment(item) {
+  return {
+    ...item,
+    course: courseStore.normalizeCourse(item.course),
+    orderRequest: item.orderRequest || getSavedOrderRequest(auth.user?.id, item.courseId)
+  }
+}
+
+function openOrderDetail(item) {
+  selectedEnrollment.value = item
+  focusedElementBeforeModal = document.activeElement
+  bodyOverflowBeforeModal = document.body.style.overflow
+  document.body.style.overflow = 'hidden'
+  nextTick(() => detailCloseButton.value?.focus())
+}
+
+function closeOrderDetail() {
+  selectedEnrollment.value = null
+  document.body.style.overflow = bodyOverflowBeforeModal
+  nextTick(() => focusedElementBeforeModal?.focus())
+}
+
+function handleEscape(event) {
+  if (event.key === 'Escape' && selectedEnrollment.value) closeOrderDetail()
+}
+
+function formatCreatedAt(value) {
+  if (!value) return '-'
+  return new Date(value).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 onMounted(async () => {
@@ -134,16 +163,16 @@ onMounted(async () => {
 
   try {
     if (auth.isDemo) {
-      enrollments.value = getDemoEnrollments().map(item => ({ ...item, course: courseStore.normalizeCourse(item.course) }))
+      enrollments.value = getDemoEnrollments().map(normalizeEnrollment)
       return
     }
     const res = await enrollmentApi.getMyEnrollments()
     console.log('[EnrollmentView] my enrollments response:', res.data)
 
     if (Array.isArray(res.data?.data)) {
-      enrollments.value = res.data.data.map(item => ({ ...item, course: courseStore.normalizeCourse(item.course) }))
+      enrollments.value = res.data.data.map(normalizeEnrollment)
     } else if (Array.isArray(res.data)) {
-      enrollments.value = res.data.map(item => ({ ...item, course: courseStore.normalizeCourse(item.course) }))
+      enrollments.value = res.data.map(normalizeEnrollment)
     } else {
       enrollments.value = []
     }
@@ -154,80 +183,41 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+onMounted(() => document.addEventListener('keydown', handleEscape))
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleEscape)
+  if (selectedEnrollment.value) document.body.style.overflow = bodyOverflowBeforeModal
+})
 </script>
 
 <style scoped>
-.page-wrapper {
+.page-wrapper,
+.view-content {
   min-height: 100vh;
   background: var(--color-bg-secondary);
 }
 
-.page-layout {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 32px 24px;
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 28px;
-}
-
-.sidebar {
+.request-summary {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sidebar-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 8px;
-}
-
-.sidebar-label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  padding: 8px 12px 4px;
-}
-
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: var(--radius-md);
-  font-size: 14px;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
+  font-size: 11px;
   color: var(--color-text-secondary);
-  transition: var(--transition);
-  background: none;
-  border: none;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  text-decoration: none;
 }
 
-.sidebar-item:hover {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-}
-
-.sidebar-item.active {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.si-icon {
-  font-size: 15px;
+.request-summary span:not(:last-child)::after {
+  content: '·';
+  margin-left: 12px;
+  color: var(--color-border-hover);
 }
 
 .main-content {
+  max-width: 1100px;
   min-width: 0;
+  margin: 0 auto;
+  padding: 42px 24px 80px;
 }
 
 .page-title {
@@ -260,50 +250,16 @@ onMounted(async () => {
   box-shadow: var(--shadow-sm);
 }
 
-.enroll-thumb {
-  width: 72px;
-  height: 72px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.enroll-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 8px;
-}
-.material-symbol { font-size:22px; font-weight:800; color:var(--color-primary); }
-
-.thumb-teal {
-  background: #E1F5EE;
-}
-
-.thumb-blue {
-  background: #E6F1FB;
-}
-
-.thumb-purple {
-  background: #EEEDFE;
-}
-
-.thumb-pink {
-  background: #FBEAF0;
-}
-
-.thumb-gray {
-  background: #F1EFE8;
-}
-
 .enroll-info {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.enroll-info > .badge {
+  width: fit-content;
+  align-self: flex-start;
 }
 
 .enroll-title {
@@ -314,6 +270,16 @@ onMounted(async () => {
 .enroll-instructor {
   font-size: 13px;
   color: var(--color-text-secondary);
+}
+
+.enroll-instructor .request-note::before {
+  content: '·';
+  margin: 0 9px;
+  color: var(--color-border-hover);
+}
+
+.request-note {
+  color: var(--color-text-primary);
 }
 
 .enroll-status {
@@ -375,5 +341,66 @@ onMounted(async () => {
   to {
     transform: rotate(360deg);
   }
+}
+
+.detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(11,31,27,.58);
+  backdrop-filter: blur(3px);
+  overscroll-behavior: contain;
+}
+
+.detail-modal {
+  width: min(620px,100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  animation: detailIn .2s ease both;
+}
+
+.detail-modal::-webkit-scrollbar { display:none; }
+.detail-head { display:flex;align-items:flex-start;justify-content:space-between;padding:22px 24px 17px;border-bottom:1px solid var(--color-border); }
+.detail-head>div>span { font-size:9px;font-weight:800;letter-spacing:.15em;color:var(--color-primary); }
+.detail-head h2 { margin-top:2px;font-size:22px;letter-spacing:-.03em; }
+.detail-close { display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--color-bg-secondary);color:var(--color-text-secondary);font-size:22px;line-height:1; }
+.detail-close:hover { background:var(--color-bg-tertiary); }
+.detail-product { display:flex;align-items:center;justify-content:space-between;gap:20px;margin:18px 24px;padding:15px 16px;border-radius:11px;background:var(--color-bg-secondary); }
+.detail-product>div { min-width:0; }
+.detail-product>div>span,.detail-product small { display:block;font-size:10px;color:var(--color-text-muted); }
+.detail-product strong { display:block;margin:3px 0;font-size:14px; }
+.detail-fields { display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 24px; }
+.detail-fields article { padding:13px 14px;border:1px solid var(--color-border);border-radius:9px; }
+.detail-fields article>span { display:block;margin-bottom:4px;font-size:10px;color:var(--color-text-muted); }
+.detail-fields article strong,.detail-fields article p { font-size:13px;line-height:1.55;overflow-wrap:anywhere; }
+.detail-wide { grid-column:1/-1; }
+.detail-section-title { margin-top:3px;padding-top:14px;border-top:1px solid var(--color-border);font-size:12px;font-weight:800; }
+.missing-detail { margin:0 24px;padding:26px;border:1px dashed var(--color-border-hover);border-radius:10px;text-align:center;background:var(--color-bg-secondary); }
+.missing-detail b { font-size:13px; }
+.missing-detail p { margin-top:5px;font-size:11px;color:var(--color-text-muted); }
+.detail-meta { display:flex;gap:14px;margin:17px 24px 0;padding-top:12px;border-top:1px solid var(--color-border);font-size:10px;color:var(--color-text-muted); }
+.detail-actions { display:flex;justify-content:flex-end;padding:17px 24px 22px; }
+.detail-actions .btn { min-width:100px;justify-content:center; }
+
+@keyframes detailIn { from{opacity:0;transform:translateY(10px) scale(.985)} to{opacity:1;transform:translateY(0) scale(1)} }
+
+@media(max-width:700px) {
+  .main-content { padding:28px 16px 60px; }
+  .enrollment-card { align-items:flex-start;flex-wrap:wrap; }
+  .enroll-status { width:100%;flex-direction:row;align-items:center;justify-content:flex-end; }
+  .detail-backdrop { align-items:end;padding:10px; }
+  .detail-modal { max-height:calc(100vh - 20px);border-radius:18px 18px 10px 10px; }
+  .detail-fields { grid-template-columns:1fr;padding:0 18px; }
+  .detail-wide { grid-column:auto; }
+  .detail-head,.detail-actions { padding-left:18px;padding-right:18px; }
+  .detail-product,.missing-detail,.detail-meta { margin-left:18px;margin-right:18px; }
 }
 </style>
