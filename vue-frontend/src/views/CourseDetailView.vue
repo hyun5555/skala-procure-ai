@@ -109,7 +109,7 @@ import { useCourseStore } from '@/store/course.js'
 import { enrollmentApi } from '@/api/enrollment.js'
 import { useAuthStore } from '@/store/auth.js'
 import { parseCapability } from '@/utils/procurement.js'
-import { addDemoEnrollment, getDemoEnrollments, saveOrderRequest } from '@/data/demo.js'
+import { addDemoEnrollment, getDemoEnrollments } from '@/data/demo.js'
 const route=useRoute(),router=useRouter(),courseStore=useCourseStore(),auth=useAuthStore()
 const enrolling=ref(false),enrollError=ref(''),modalError=ref(''),enrollmentStatus=ref('NONE'),showOrderModal=ref(false),orderSuccessMessage=ref('')
 const orderQuantityInput=ref(null)
@@ -145,7 +145,7 @@ function handleEscape(event){if(event.key==='Escape'&&showOrderModal.value)close
 function validateOrder(){if(!Number.isInteger(Number(orderForm.quantity))||Number(orderForm.quantity)<1)return '발주 수량은 1 이상인 정수로 입력해 주세요.';if(!orderForm.deliveryDate)return '희망 납품일을 선택해 주세요.';if(orderForm.deliveryDate<minimumDeliveryDate.value)return '희망 납품일은 오늘 이후로 선택해 주세요.';if(!orderForm.deliveryPlace.trim())return '납품 장소를 입력해 주세요.';if(!orderForm.contactName.trim())return '담당자명을 입력해 주세요.';if(!orderForm.contactPhone.trim())return '담당자 연락처를 입력해 주세요.';return ''}
 function showOrderSuccess(){orderSuccessMessage.value='발주가 완료되었습니다.';clearTimeout(successTimer);successTimer=setTimeout(()=>{orderSuccessMessage.value=''},3500)}
 async function handlePrimaryAction(){enrollError.value='';if(enrollmentStatus.value==='ACTIVE')return router.push('/enrollments');if(!course.value?.id||isInstructor.value)return;openOrderModal()}
-async function submitOrder(){modalError.value=validateOrder();if(modalError.value||!course.value?.id)return;enrolling.value=true;const orderRequest={quantity:Number(orderForm.quantity),unit:specs.value.unit||'개',deliveryDate:orderForm.deliveryDate,deliveryPlace:orderForm.deliveryPlace.trim(),notes:orderForm.notes.trim(),contactName:orderForm.contactName.trim(),contactPhone:orderForm.contactPhone.trim(),estimatedTotal:estimatedTotal.value};try{if(auth.isDemo){addDemoEnrollment(course.value,orderRequest);enrollmentStatus.value='ACTIVE'}else{await enrollmentApi.enroll(course.value.id);saveOrderRequest(auth.user.id,course.value.id,orderRequest);enrollmentStatus.value='PENDING'}showOrderModal.value=false;unlockPage();showOrderSuccess()}catch(e){modalError.value=e.response?.data?.message||'견적·발주 요청에 실패했습니다.'}finally{enrolling.value=false}}
+async function submitOrder(){modalError.value=validateOrder();if(modalError.value||!course.value?.id)return;enrolling.value=true;const orderRequest={courseId:course.value.id,quantity:Number(orderForm.quantity),unit:specs.value.unit||'개',deliveryDate:orderForm.deliveryDate,deliveryPlace:orderForm.deliveryPlace.trim(),notes:orderForm.notes.trim(),contactName:orderForm.contactName.trim(),contactPhone:orderForm.contactPhone.trim()};try{if(auth.isDemo){addDemoEnrollment(course.value,{...orderRequest,estimatedTotal:estimatedTotal.value});enrollmentStatus.value='ACTIVE'}else{await enrollmentApi.enroll(orderRequest);enrollmentStatus.value='PENDING'}showOrderModal.value=false;unlockPage();showOrderSuccess()}catch(e){modalError.value=e.response?.data?.message||'견적·발주 요청에 실패했습니다.'}finally{enrolling.value=false}}
 onMounted(async()=>{document.addEventListener('keydown',handleEscape);await courseStore.fetchCourse(route.params.id);await loadStatus()})
 onBeforeUnmount(()=>{document.removeEventListener('keydown',handleEscape);clearTimeout(successTimer);if(showOrderModal.value)unlockPage()})
 </script>

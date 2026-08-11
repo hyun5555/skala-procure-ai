@@ -118,10 +118,19 @@
 
 ```json
 // POST /api/enrollments
-{ "courseId": 1 }
+{
+  "courseId": 1,
+  "quantity": 12,
+  "unit": "본",
+  "deliveryDate": "2026-09-10",
+  "deliveryPlace": "서울특별시 강남구 현장 자재창고",
+  "notes": "파렛트 포장 후 납품",
+  "contactName": "홍길동",
+  "contactPhone": "010-1234-5678"
+}
 ```
 
-이게 전부다. 수량·예산·희망납기 같은 조달조건 필드는 없다. 대응 방법은 [`../constraints.md`](../constraints.md)의 `조달 조건 입력 필드가 없다` 를 본다.
+`estimatedTotal` 은 클라이언트가 보내지 않는다. enrollment-service가 course-service에서 조회한 등록 단가에 수량을 곱해 계산·저장한다. 자동 결제 금액은 별도 미결 사항이므로 현재 99,000원 고정을 유지한다.
 
 ```json
 // GET /api/enrollments/my — course 객체가 붙어서 온다. 별도 조회가 필요 없다.
@@ -134,6 +143,16 @@
     "courseId": 1,
     "status": "ACTIVE",
     "createdAt": "2026-08-10T14:05:40",
+    "orderRequest": {
+      "quantity": 12,
+      "unit": "본",
+      "deliveryDate": "2026-09-10",
+      "deliveryPlace": "서울특별시 강남구 현장 자재창고",
+      "notes": "파렛트 포장 후 납품",
+      "contactName": "홍길동",
+      "contactPhone": "010-1234-5678",
+      "estimatedTotal": 7448880.00
+    },
     "course": {
       "id": 1,
       "title": "SUS304 CNC 정밀가공",
@@ -155,7 +174,7 @@
 **프론트엔드가 호출하는 API는 `POST /api/enrollments` 하나뿐이다.** 나머지는 서버 내부에서 연쇄적으로 일어난다.
 
 ```text
-1. 프론트엔드          POST /api/enrollments { courseId }
+1. 프론트엔드          POST /api/enrollments { courseId, quantity, unit, deliveryDate, ... }
 2. enrollment-service  → course-service /internal/exists/{id}   서비스 존재 확인
 3. enrollment-service  주문 레코드 생성 (PENDING)
 4. enrollment-service  → payment-service /internal/request      결제 자동 요청
@@ -262,5 +281,5 @@ enrollment-service 자바 수정이 필요하다. 기획안의 핵심 차별점�
 
 | Sprint | 프론트엔드가 호출할 API | 백엔드 작업 |
 | --- | --- | --- |
-| **Sprint 1** | `POST /api/users/register`<br>`GET /api/users/me`<br>`POST /api/courses`<br>`GET /api/courses`<br>`GET /api/courses/{id}`<br>`GET /api/courses/category/{category}`<br>`POST /api/enrollments`<br>`GET /api/enrollments/my`<br>`GET /api/payments/user/{userId}`<br>`GET /api/recommend/{userId}` | 없음 (자바 0줄) |
+| **Sprint 1** | `POST /api/users/register`<br>`GET /api/users/me`<br>`POST /api/courses`<br>`GET /api/courses`<br>`GET /api/courses/{id}`<br>`GET /api/courses/category/{category}`<br>`POST /api/enrollments`<br>`GET /api/enrollments/my`<br>`GET /api/payments/user/{userId}`<br>`GET /api/recommend/{userId}` | enrollment-service 발주 상세 저장 |
 | **Sprint 2** | `PATCH /api/enrollments/{id}/quality` (신규)<br>`GET /api/recommend/{userId}` (응답 확장) | enrollment-service 품질검사<br>recommend-service 점수화 |

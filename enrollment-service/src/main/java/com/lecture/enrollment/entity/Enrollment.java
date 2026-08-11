@@ -6,6 +6,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -27,6 +29,32 @@ public class Enrollment {
 
     @Column(name = "course_id", nullable = false)
     private Long courseId;
+
+    // 기존 발주 행과의 무중단 스키마 호환을 위해 컬럼 자체는 nullable로 둔다.
+    // 신규 요청은 EnrollRequest validation에서 필수값을 강제한다.
+    @Column
+    private Long quantity;
+
+    @Column(length = 20)
+    private String unit;
+
+    @Column(name = "delivery_date")
+    private LocalDate deliveryDate;
+
+    @Column(name = "delivery_place", length = 100)
+    private String deliveryPlace;
+
+    @Column(length = 300)
+    private String notes;
+
+    @Column(name = "contact_name", length = 30)
+    private String contactName;
+
+    @Column(name = "contact_phone", length = 30)
+    private String contactPhone;
+
+    @Column(name = "estimated_total", precision = 19, scale = 2)
+    private BigDecimal estimatedTotal;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

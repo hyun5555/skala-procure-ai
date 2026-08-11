@@ -27,7 +27,7 @@ public class EnrollmentController {
             @RequestHeader("X-User-Id") Long userId) {
 
         EnrollmentDto.EnrollmentResponse response =
-                enrollmentService.enroll(userId, request.getCourseId());
+                enrollmentService.enroll(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(EnrollmentDto.ApiResponse.success(response));
     }

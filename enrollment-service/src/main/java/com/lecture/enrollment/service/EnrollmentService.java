@@ -34,7 +34,9 @@ public class EnrollmentService {
      * 3. Enrollment 생성 및 즉시 커밋 (PENDING)
      * 4. 결제 요청
      */
-    public EnrollmentDto.EnrollmentResponse enroll(Long userId, Long courseId) {
+    public EnrollmentDto.EnrollmentResponse enroll(Long userId, EnrollmentDto.EnrollRequest request) {
+        Long courseId = request.getCourseId();
+
         if (!courseServiceClient.existsCourse(courseId)) {
             throw new IllegalArgumentException("존재하지 않는 강의입니다: " + courseId);
         }
@@ -43,7 +45,11 @@ public class EnrollmentService {
             throw new IllegalArgumentException("이미 수강신청한 강의입니다");
         }
 
-        Enrollment enrollment = enrollmentWriteService.createPendingEnrollment(userId, courseId);
+        Map<String, Object> courseInfo = courseServiceClient.getCourse(courseId);
+        BigDecimal unitPrice = toBigDecimal(courseInfo.get("price"));
+        BigDecimal estimatedTotal = unitPrice.multiply(BigDecimal.valueOf(request.getQuantity()));
+
+        Enrollment enrollment = enrollmentWriteService.createPendingEnrollment(userId, request, estimatedTotal);
 
         paymentServiceClient.requestPayment(userId, courseId, BigDecimal.valueOf(99000));
 
@@ -152,6 +158,13 @@ public class EnrollmentService {
         if (value == null) return null;
         if (value instanceof Number number) return number.intValue();
         return Integer.parseInt(value.toString());
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            throw new IllegalStateException("강의 가격 정보가 없습니다");
+        }
+        return value instanceof BigDecimal decimal ? decimal : new BigDecimal(value.toString());
     }
 
     private String firstNonNull(String... values) {

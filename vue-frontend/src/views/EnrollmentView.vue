@@ -96,7 +96,7 @@ import AppFooter from '@/components/AppFooter.vue'
 import { enrollmentApi } from '@/api/enrollment.js'
 import { useAuthStore } from '@/store/auth.js'
 import { useCourseStore } from '@/store/course.js'
-import { getDemoEnrollments, getSavedOrderRequest } from '@/data/demo.js'
+import { getDemoEnrollments } from '@/data/demo.js'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -126,7 +126,7 @@ function normalizeEnrollment(item) {
   return {
     ...item,
     course: courseStore.normalizeCourse(item.course),
-    orderRequest: item.orderRequest || getSavedOrderRequest(auth.user?.id, item.courseId)
+    orderRequest: item.orderRequest || null
   }
 }
 
