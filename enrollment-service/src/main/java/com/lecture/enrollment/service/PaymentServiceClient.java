@@ -42,41 +42,6 @@ public class PaymentServiceClient {
         }
     }
 
-    /**
-     * Payment Service: 결제 취소 (발주 취소 시)
-     *
-     * 실패해도 예외를 던지지 않는다. 결제 취소가 안 됐다고 발주 취소까지 막으면
-     * 사용자는 취소할 방법이 없어진다. 대신 로그로 남겨 뒤에 손으로 맞출 수 있게 한다.
-     */
-    public void cancelPayment(Long userId, Long courseId) {
-        try {
-            webClientBuilder.build()
-                    .post()
-                    .uri("http://payment-service:8084/api/payments/internal/cancel")
-                    .bodyValue(new CancelRequest(userId, courseId))
-                    .retrieve()
-                    .toBodilessEntity()
-                    .block();
-
-            log.info("[PaymentServiceClient] 결제 취소 완료 - userId: {}, courseId: {}", userId, courseId);
-        } catch (Exception e) {
-            log.error("[PaymentServiceClient] 결제 취소 실패 - userId: {}, courseId: {}, error: {}",
-                    userId, courseId, e.getMessage());
-        }
-    }
-
-    @Getter
-    @NoArgsConstructor
-    static class CancelRequest {
-        private Long userId;
-        private Long courseId;
-
-        CancelRequest(Long userId, Long courseId) {
-            this.userId = userId;
-            this.courseId = courseId;
-        }
-    }
-
     @Getter
     @NoArgsConstructor
     static class PaymentRequest {

@@ -139,15 +139,6 @@ public class CourseService {
     }
 
     /**
-     * 거래건수 감소 (Enrollment Service 발주 취소 시 호출)
-     */
-    @Transactional
-    public void decreaseEnrollmentCount(Long courseId) {
-        Course course = findCourseById(courseId);
-        course.decreaseEnrollmentCount();
-    }
-
-    /**
      * 공급성과 누적 (Enrollment Service 평가 등록 시 호출)
      *
      * 평가받은 품목 하나가 아니라 **그 공급기업의 모든 품목**에 반영한다.

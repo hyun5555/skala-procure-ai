@@ -40,7 +40,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout(redirect = true) {
+  async function logout(redirect = true) {
+    const shouldCloseServerSession = !isDemo.value
+
     accessToken.value = null
     user.value = null
     sessionStorage.removeItem('access_token')
@@ -48,12 +50,31 @@ export const useAuthStore = defineStore('auth', () => {
     sessionStorage.removeItem('demo_mode')
     sessionStorage.removeItem('demo_courses')
     sessionStorage.removeItem('demo_course_statuses')
+    sessionStorage.removeItem('demo_course_overrides')
     sessionStorage.removeItem('demo_enrollments')
     sessionStorage.removeItem('order_requests')
+    sessionStorage.removeItem('demo_quality_records')
     isDemo.value = false
 
+    // 액세스 토큰만 지우면 auth-server 의 로그인 세션(JSESSIONID)은 남는다.
+    // 그러면 로그아웃 직후 다시 로그인할 때 계정 선택 없이 이전 사용자로
+    // 자동 로그인되어 버튼이 동작하지 않은 것처럼 보인다. Vite 의 /logout
+    // 프록시를 통해 서버 세션도 함께 끝낸다. redirect 를 수동 처리해야
+    // auth-server 의 로그인 화면으로 따라가지 않고 앱 로그인 화면에 머문다.
+    if (shouldCloseServerSession) {
+      try {
+        await fetch('/logout', {
+          method: 'GET',
+          credentials: 'include',
+          redirect: 'manual'
+        })
+      } catch (error) {
+        console.warn('[AuthStore] 인증 서버 로그아웃 요청 실패:', error)
+      }
+    }
+
     if (redirect) {
-      window.location.href = '/login'
+      window.location.assign('/login')
     }
   }
 

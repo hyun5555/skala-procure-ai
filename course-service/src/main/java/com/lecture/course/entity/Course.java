@@ -137,17 +137,6 @@ public class Course {
     }
 
     /**
-     * 발주가 취소되면 거래건수를 되돌린다.
-     * 기획안의 누적 거래건수에 그대로 대응하는 값이라 취소분이 남아 있으면 지표가 부풀려진다.
-     * 0 미만으로 내려가지 않게 막는다. 취소 요청이 중복으로 와도 음수가 되어서는 안 된다.
-     */
-    public void decreaseEnrollmentCount() {
-        if (this.enrollmentCount > 0) {
-            this.enrollmentCount--;
-        }
-    }
-
-    /**
      * 공급성과 평가 한 건을 누적한다.
      *
      * 비율을 매번 다시 계산하지 않고 원시 수량을 쌓아 두었다가 나눈다. 평균의 평균을

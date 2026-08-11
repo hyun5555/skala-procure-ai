@@ -11,6 +11,16 @@
         <router-link v-if="isInstructor" to="/courses/new" class="btn btn-primary">+ 조달 품목 등록</router-link>
       </section>
 
+      <section v-if="!isInstructor" class="recommend-section">
+        <div class="result-header">
+          <div><span class="eyebrow">AI RECOMMENDATION</span><h2>거래 이력 기반 추천 공급기업</h2><p class="recommend-message">{{ recommendationMessage }}</p></div>
+          <span v-if="recommendationCategory" class="recommend-category">관심 품명 · {{ recommendationCategory }}</span>
+        </div>
+        <div v-if="recommendationLoading" class="loading-grid"><div v-for="i in 3" :key="i" class="skeleton-card"></div></div>
+        <div v-else-if="recommendedCourses.length" class="course-grid"><CourseCard v-for="course in recommendedCourses" :key="`recommend-${course.id}`" :course="course" /></div>
+        <p v-else class="recommend-empty">{{ recommendationError || '추천 결과가 아직 없습니다.' }}</p>
+      </section>
+
       <section v-if="!isInstructor" class="condition-panel">
         <div class="panel-title">
           <span class="step-number">01</span>
@@ -69,10 +79,16 @@ import RegionMultiSelect from '@/components/RegionMultiSelect.vue'
 import { useCourseStore } from '@/store/course.js'
 import { useAuthStore } from '@/store/auth.js'
 import { deliveryDayOptions, evaluateCourse, productOptions } from '@/utils/procurement.js'
+import { recommendApi } from '@/api/recommend.js'
 
 const courseStore = useCourseStore()
 const auth = useAuthStore()
 const hasMatched = ref(false)
+const recommendedCourses = ref([])
+const recommendationMessage = ref('거래 이력과 공급성과를 분석하고 있습니다.')
+const recommendationCategory = ref('')
+const recommendationLoading = ref(false)
+const recommendationError = ref('')
 const criteria = reactive({ product: '전체', detailProduct: '', specification: '전체', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, certifications: [], excellentOnly: false, masOnly: false })
 const loading = computed(() => courseStore.loading)
 const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
@@ -85,13 +101,35 @@ const displayCourses = computed(() => {
   return courses.map(course => evaluateCourse(course, criteria)).filter(course => course.eligible).sort((a, b) => b.score - a.score)
 })
 
-function runMatching() { hasMatched.value = true }
-function resetMatching() {
+async function runMatching() {
+  if (!auth.isDemo && criteria.product !== '전체') {
+    const category = Object.entries(courseStore.categoryLabelMap).find(([, label]) => label === criteria.product)?.[0]
+    if (category) {
+      try { await courseStore.fetchCoursesByCategory(category) } catch { /* store error is shown by the empty state */ }
+    }
+  } else if (!auth.isDemo && criteria.product === '전체') await courseStore.fetchCourses()
+  hasMatched.value = true
+}
+async function resetMatching() {
   Object.assign(criteria, { product: '전체', detailProduct: '', specification: '전체', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, certifications: [], excellentOnly: false, masOnly: false })
   hasMatched.value = false
+  await courseStore.fetchCourses()
 }
 watch(() => criteria.product, () => { criteria.specification = '전체' })
-onMounted(() => courseStore.fetchCourses())
+async function loadRecommendations() {
+  if (isInstructor.value || auth.isDemo || !auth.user?.id) return
+  recommendationLoading.value = true; recommendationError.value = ''
+  try {
+    const res = await recommendApi.getForUser(auth.user.id)
+    const data = res.data?.data || res.data
+    recommendedCourses.value = (data?.recommendedCourses || []).map(courseStore.normalizeCourse)
+    recommendationCategory.value = courseStore.normalizeCategory(data?.basedOnCategory)
+    recommendationMessage.value = data?.message || '공급성과와 거래 이력을 반영한 추천 결과입니다.'
+  } catch (e) {
+    recommendationError.value = e.response?.data?.message || '추천 결과를 불러오지 못했습니다.'
+  } finally { recommendationLoading.value = false }
+}
+onMounted(() => Promise.allSettled([courseStore.fetchCourses(), loadRecommendations()]))
 </script>
 
 <style scoped>
@@ -102,6 +140,7 @@ onMounted(() => courseStore.fetchCourses())
 .page-heading h1 { font-size:30px; line-height:1.3; letter-spacing:-.04em; }
 .page-heading p { margin-top:8px; color:var(--color-text-secondary); font-size:14px; }
 .condition-panel { padding:26px; border:1px solid #d9e6ed; border-radius:18px; background:#fff; box-shadow:0 14px 40px rgba(30,48,60,.08); margin-bottom:42px; }
+.recommend-section{margin-bottom:36px;padding:24px;border:1px solid var(--color-border);border-radius:18px;background:linear-gradient(135deg,#f7fbfd,#fff)}.recommend-message{margin-top:5px;font-size:12px;color:var(--color-text-muted)}.recommend-category{padding:7px 11px;border-radius:999px;background:var(--color-primary-light);color:var(--color-accent-dark);font-size:10px;font-weight:700}.recommend-empty{padding:22px;border-radius:10px;background:#fff;color:var(--color-text-muted);font-size:12px;text-align:center}
 .panel-title { display:flex; align-items:center; gap:13px; margin-bottom:22px; }
 .panel-title h2, .result-header h2 { font-size:19px; }
 .panel-title p { font-size:12px; color:var(--color-text-muted); margin-top:2px; }

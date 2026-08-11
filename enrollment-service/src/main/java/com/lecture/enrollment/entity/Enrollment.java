@@ -117,8 +117,14 @@ public class Enrollment {
         this.status = Status.ACTIVE;
     }
 
-    public void cancel() {
-        this.status = Status.CANCELLED;
+    public void updateQuality(Long deliveredQuantity, Long defectQuantity, String defectType) {
+        this.deliveredQty = deliveredQuantity;
+        this.defectQty = defectQuantity;
+        this.defectType = defectType;
+        this.defectRate = BigDecimal.valueOf(defectQuantity)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(deliveredQuantity), 2, RoundingMode.HALF_UP);
+        this.evaluatedAt = LocalDateTime.now();
     }
 
     /**

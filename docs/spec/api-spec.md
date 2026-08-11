@@ -94,13 +94,14 @@ POST /api/users/anything        → 401
 | --- | --- | --- | --- |
 | POST | `/api/courses` | 공급기업이 가공 서비스 등록 | INSTRUCTOR |
 | PUT | `/api/courses/{id}` | 등록한 공급기업이 품목 수정 | INSTRUCTOR |
+| PUT | `/api/courses/{id}/status` | 등록한 공급기업이 거래 가능 상태 변경 | INSTRUCTOR |
 | GET | `/api/courses` | 전체 가공 서비스 목록 | 토큰 |
+| GET | `/api/courses/my` | 내가 등록한 품목 목록 | INSTRUCTOR |
 | GET | `/api/courses/{id}` | 가공 서비스 상세 | 토큰 |
 | GET | `/api/courses/category/{category}` | 소재 계열별 조회 | 토큰 |
 | GET | `/api/courses/internal/exists/{id}` | 발주 시 존재 확인 | service |
 | GET | `/api/courses/internal/{id}` | 발주 목록 조립용 | service |
 | POST | `/api/courses/internal/{id}/enrollment-count` | 거래 건수 증가 | service |
-| POST | `/api/courses/internal/{id}/enrollment-count/decrease` | 거래 건수 감소 (발주 취소) | service |
 | POST | `/api/courses/internal/{id}/performance` | 공급기업 누적 성과지표 갱신 | service |
 | GET | `/api/courses/internal/recommend` | 추천 후보 조회 | service |
 
@@ -110,7 +111,8 @@ POST /api/users/anything        → 401
   "title": "수도용덕타일주철관, Φ300mm×6m, 2종",
   "description": "공급업체소재지: 충청북도 영동군 | 기업구분: 중소기업 | 품명: 주철관 | 세부품명: 수도용덕타일주철관 | 물품식별번호: 10062465 | 단위: 본 | 공급지역: 전지역 | 납품일수: 30일 | 인증정보: KS, 소기업 | 우수제품여부: N | MAS여부: Y",
   "category": "SECURITY",
-  "price": 620740
+  "price": 620740,
+  "contractEnd": "2027-12-31"
 }
 ```
 
@@ -144,7 +146,7 @@ POST /api/users/anything        → 401
 | Method | URL | 조달 도메인 의미 | 인증 |
 | --- | --- | --- | --- |
 | POST | `/api/enrollments` | 발주 요청. 생성 시 `PENDING` | 토큰 |
-| DELETE | `/api/enrollments/{id}` | 발주 취소. 행은 남고 상태만 `CANCELLED` | 토큰 |
+| PUT | `/api/enrollments/{id}/quality` | 납품 품질 등록·수정 | 토큰 |
 | PATCH | `/api/enrollments/{id}/performance` | 공급성과 평가(QCD) 등록 | 토큰 |
 | GET | `/api/enrollments/my` | 내 발주·주문 목록 | 토큰 |
 | GET | `/api/enrollments/user/{userId}` | 특정 기업의 발주 목록 | 토큰 |
@@ -201,7 +203,7 @@ POST /api/users/anything        → 401
 }
 ```
 
-상태 값은 `PENDING`(결제 대기) · `ACTIVE`(주문 확정) · `CANCELLED`(취소) 세 개다.
+신규 발주의 상태 값은 `PENDING`(결제 대기) · `ACTIVE`(주문 확정) 두 개다.
 
 ### 품목 수정
 
@@ -215,30 +217,6 @@ POST /api/users/anything        → 401
 | 상황 | 응답 |
 | --- | --- |
 | 남의 품목을 수정 | 403 `자신이 등록한 품목만 수정할 수 있습니다` |
-
-### 발주 취소
-
-`DELETE /api/enrollments/{id}` 는 **행을 지우지 않고 상태만 `CANCELLED` 로 바꾼다.** 결제 내역과 대조할 근거가 사라지면 안 되기 때문이다. 취소하면 세 가지가 함께 일어난다.
-
-```text
-1. enrollment  status → CANCELLED
-2. payment     status → CANCELLED   (POST /api/payments/internal/cancel)
-3. course      거래건수 −1           (ACTIVE 였던 발주만. PENDING 은 올라간 적이 없다)
-```
-
-결제가 끝난 발주도 취소할 수 있다. Kafka 로 결제가 몇 초 만에 완료되어 `PENDING` 은 사실상 스쳐 지나가므로, `PENDING` 만 허용하면 취소할 수 있는 발주가 없는 것과 같다.
-
-2·3번은 실패해도 취소 자체를 막지 않는다. 그것 때문에 사용자가 취소를 못 하게 되는 편이 나쁘다. 실패는 로그에 남는다.
-
-**취소한 뒤 `payment.completed` 가 도착해도 되살아나지 않는다.** `PENDING` 인 발주만 확정 대상이다. 결제가 몇 초 만에 끝나므로 발주 직후 취소를 누르면 이벤트보다 취소가 먼저 도착할 수 있고, 상태를 보지 않고 덮어쓰면 취소가 사라진다. 같은 가드가 Kafka 중복 배달(at-least-once)로 거래건수가 두 번 오르는 것도 막는다.
-
-| 상황 | 응답 |
-| --- | --- |
-| 남의 발주를 취소 | 403 `자신의 발주만 취소할 수 있습니다` |
-| 이미 취소한 발주 | 400 `이미 취소된 발주입니다` |
-| **취소한 품목을 다시 발주** | 400 `이미 수강신청한 강의입니다` |
-
-마지막 줄이 중요하다. `enrollments` 에 `UNIQUE (user_id, course_id)` 가 있어 **행이 남아 있는 한 같은 품목을 다시 발주할 수 없다.** 취소 기록을 남기는 대가다. 재발주가 필요하면 제약을 풀어야 하고 그것은 [`../constraints.md`](../constraints.md) 5번에 걸린다.
 
 ### 발주 → 결제 → 확정 흐름
 
@@ -263,7 +241,6 @@ POST /api/users/anything        → 401
 | GET | `/api/payments/{id}` | 결제 단건 조회 | 토큰 |
 | GET | `/api/payments/user/{userId}` | 기업 결제 내역 | 토큰 |
 | POST | `/api/payments/internal/request` | 결제 실행. enrollment-service만 호출 | service |
-| POST | `/api/payments/internal/cancel` | 결제 취소. enrollment-service만 호출 | service |
 
 ```json
 // GET /api/payments/user/3
@@ -282,7 +259,7 @@ POST /api/users/anything        → 401
 }
 ```
 
-**프론트엔드는 결제를 직접 호출하지 않는다.** 결제를 생성하는 공개 엔드포인트가 없고, `vue-frontend/src/api/` 에 `payment.js` 가 아예 없다. 의도된 구조다.
+**프론트엔드는 결제를 직접 생성하지 않는다.** 생성은 enrollment-service가 내부 API로 실행한다. 프론트는 `GET /api/payments/user/{userId}` 로 결과만 조회해 발주 관리 화면에 표시한다.
 
 `amount` 는 발주의 `estimatedTotal`(단가 × 수량)과 같은 값이다. 99,000원 고정이던 시절의 사정은 [`../constraints.md`](../constraints.md)의 `결제 금액` 을 본다.
 
@@ -302,11 +279,11 @@ POST /api/users/anything        → 401
     "instructorId": 2, "instructorName": "(주)신안주철", "enrollmentCount": 3,
     "defectRate": 0.50, "onTimeRate": 83.33, "costVarianceRate": 2.00, "evaluatedCount": 12,
     "score": 53,
-    "scoreBreakdown": { "quality": 13, "delivery": 11, "cost": 8, "procurement": 17, "experience": 4 },
+    "scoreBreakdown": { "quality": 24, "delivery": 16, "cost": 13 },
     "reason": "불량률 0.50% (5,000 PPM) · 납기 준수율 83% · 견적 대비 2.0% 초과 · 평가 12건 기준 · KS · 우수제품 · MAS 등록",
     "performanceTrusted": true
   }],
-  "message": "SECURITY 공급기업 5곳을 추천합니다. 그중 3곳은 평가 10건 이상의 실제 거래 성과가 반영되었습니다"
+  "message": "SECURITY 공급기업 5곳을 추천합니다. 그중 3곳은 평가 1건 이상의 실제 거래 성과가 반영되었습니다"
 }
 ```
 
@@ -317,7 +294,7 @@ POST /api/users/anything        → 401
 | | 표준 |
 | --- | --- |
 | 인용 가능 | QCD 프레임 · PPM · OTD · PPV 정의 · OTD 목표선 95% · PPM 100/1,000/10,000 구간 · 로그 척도(Six Sigma DPMO) |
-| 우리 설정 | 배점 50/30/20 · 곡선 형태 · 끝점(PPM 3%, OTD 80%, PPV +10%) · 평가 10건 문턱 |
+| 우리 설정 | 배점 50/30/20 · 곡선 형태 · 끝점(PPM 3%, OTD 80%, PPV +10%) · 검증 중 평가 문턱 1건 |
 
 PPM 기준선은 산업 편차가 크다. 100 PPM 은 자동차·전자 기준이고 강관·주철관 같은 토목자재는 더 느슨한 것이 보통이다. **우리 기준이 엄격한 쪽이다.**
 
@@ -343,7 +320,7 @@ C  0% 이하 20점 · +2% 16 · +5% 10 · +10% 0
 
 **C 를 금액 가중으로 두는 이유** — 합계를 먼저 내고 나눈다. 건별 PPV 를 단순 평균하면 10만원짜리가 1억짜리와 같은 무게를 갖는다. 절감(음수)에 가산점은 주지 않는다. 견적을 크게 밑돌면 견적이 부실했다는 신호일 수 있다.
 
-**평가 10건 문턱** — 미만이면 각 축에 **기본점수(만점의 절반, Q 25 / D 15 / C 10)** 를 주고 `performanceTrusted: false` 를 붙인다. 실제 분포에서 뽑은 중앙값이 아니라 **중립값**이다 — 표본이 쌓이기 전에는 좋다고도 나쁘다고도 할 수 없으므로 가운데에 둔다. 표본이 적으면 비율이 요동친다. 1건 평가에서 불량 0이 나왔다고 무결점 업체로 볼 수 없다. 0점을 주면 신규 공급기업이 영원히 추천되지 않아 거래 이력을 쌓을 기회 자체가 사라진다.
+**검증용 평가 문턱** — 운영 기준은 평가 10건이지만 현재 검증 기간에는 1건으로 일시 완화했다. 따라서 평가가 1건이라도 있으면 실제 QCD 점수와 `performanceTrusted: true`를 사용한다. 평가가 0건이면 각 축에 **기본점수(만점의 절반, Q 25 / D 15 / C 10)** 를 주고 `performanceTrusted: false` 를 붙인다. 검증 종료 후 `recommend-service/app/service/scoring.py`의 `MIN_EVALUATIONS`를 10으로 되돌린다.
 
 #### 점수 2 — 조건 적합도 100점 · 프론트엔드
 
@@ -390,7 +367,42 @@ C  0% 이하 20점 · +2% 16 · +5% 10 · +10% 0
 
 **기업구분 필터는 실질 효과가 없다.** 전수에서 중소기업이 99.33% 다. 화면에 남기더라도 거의 걸러지지 않는다.
 
-## 6. 공급성과 평가 — QCD
+## 6. 납품 품질 등록
+
+발주 관리 화면에서 주문 확정 건의 납품 수량과 불량 수량을 등록한다. 화면과 서버는 같은 식을 사용하며 서버 계산값을 최종값으로 저장한다.
+
+```json
+// PUT /api/enrollments/{id}/quality
+{
+  "deliveredQuantity": 200,
+  "defectQuantity": 5,
+  "defectType": "외관 불량"
+}
+```
+
+```text
+불량률(%) = 불량 수량 ÷ 납품 수량 × 100
+200개 중 5개 불량 → 2.50%
+```
+
+소수 둘째 자리에서 반올림한다. 불량 수량은 납품 수량을 넘을 수 없으며, 불량이 0이면 불량 유형은 `해당 없음`이어야 한다. 같은 발주의 품질 정보는 다시 저장해 수정할 수 있다.
+
+```json
+// 200
+{
+  "success": true,
+  "message": "성공",
+  "data": {
+    "deliveredQuantity": 200,
+    "defectQuantity": 5,
+    "defectType": "외관 불량",
+    "defectRate": 2.50,
+    "updatedAt": "2026-08-11T15:30:00"
+  }
+}
+```
+
+## 7. 공급성과 평가 — QCD
 
 기획안의 핵심 차별점인 **거래 후 데이터를 다음 추천에 재활용하는 피드백 구조**가 여기서 닫힌다.
 
@@ -465,4 +477,4 @@ C  0% 이하 20점 · +2% 16 · +5% 10 · +10% 0
 | Sprint | 프론트엔드가 호출할 API | 백엔드 작업 |
 | --- | --- | --- |
 | **Sprint 1** | `POST /api/users/register`<br>`GET /api/users/me`<br>`POST /api/courses`<br>`GET /api/courses`<br>`GET /api/courses/{id}`<br>`GET /api/courses/category/{category}`<br>`POST /api/enrollments`<br>`GET /api/enrollments/my`<br>`GET /api/payments/user/{userId}`<br>`GET /api/recommend/{userId}` | enrollment-service 발주 상세 저장 |
-| **Sprint 2** | `PUT /api/courses/{id}`<br>`DELETE /api/enrollments/{id}`<br>`PATCH /api/enrollments/{id}/performance`<br>`GET /api/recommend/{userId}` (응답 확장) | 품목 수정 · 발주 취소<br>공급성과 평가(QCD)<br>recommend-service 점수화 |
+| **Sprint 2** | `GET /api/courses/my`<br>`PUT /api/courses/{id}/status`<br>`PUT /api/courses/{id}`<br>`PUT /api/enrollments/{id}/quality`<br>`PATCH /api/enrollments/{id}/performance`<br>`GET /api/recommend/{userId}` (응답 확장) | 품목 관리 · 납품 품질 등록<br>공급성과 평가(QCD)<br>recommend-service 점수화 |

@@ -50,7 +50,7 @@ public class CourseController {
         );
     }
 
-    @PatchMapping("/{id}/status")
+    @PutMapping("/{id}/status")
     public ResponseEntity<CourseDto.ApiResponse<CourseDto.CourseResponse>> updateCourseStatus(
             @PathVariable Long id,
             @Valid @RequestBody CourseDto.StatusRequest request,
@@ -120,16 +120,6 @@ public class CourseController {
     @PostMapping("/internal/{id}/enrollment-count")
     public ResponseEntity<Void> increaseEnrollmentCount(@PathVariable Long id) {
         courseService.increaseEnrollmentCount(id);
-        return ResponseEntity.ok().build();
-    }
-
-    /**
-     * POST /courses/internal/{id}/enrollment-count/decrease - 거래건수 감소
-     * Enrollment Service 가 발주 취소 시 호출한다
-     */
-    @PostMapping("/internal/{id}/enrollment-count/decrease")
-    public ResponseEntity<Void> decreaseEnrollmentCount(@PathVariable Long id) {
-        courseService.decreaseEnrollmentCount(id);
         return ResponseEntity.ok().build();
     }
 

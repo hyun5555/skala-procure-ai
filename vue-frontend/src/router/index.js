@@ -31,6 +31,12 @@ const routes = [
     meta: { requiresAuth: true, instructorOnly: true }
   },
   {
+    path: '/courses/:id(\\d+)/edit',
+    name: 'CourseEdit',
+    component: () => import('@/views/CourseEditView.vue'),
+    meta: { requiresAuth: true, instructorOnly: true }
+  },
+  {
     path: '/courses/:id(\\d+)',
     name: 'CourseDetail',
     component: () => import('@/views/CourseDetailView.vue'),

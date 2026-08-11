@@ -22,7 +22,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -98,37 +97,65 @@ class EnrollmentServiceTest {
         assertThat(response.getOrderRequest()).isNull();
     }
 
-    /**
-     * 소유자 대조가 사라져도 화면은 멀쩡히 돈다. 손으로 다시 확인하지 않으면 아무도 모른다.
-     * 네 서비스가 전부 permitAll 이라 이 대조가 유일한 방어선이다.
-     */
     @Test
-    void cancelRejectsOtherUsersOrder() {
-        Enrollment mine = Enrollment.builder().userId(3L).courseId(7L).build();
-        when(enrollmentRepository.findById(11L)).thenReturn(Optional.of(mine));
+    void qualityRegistrationCalculatesDefectRateFromDeliveredQuantity() {
+        Enrollment enrollment = Enrollment.builder()
+                .userId(3L)
+                .courseId(7L)
+                .status(Enrollment.Status.ACTIVE)
+                .build();
+        EnrollmentDto.QualityRequest request = EnrollmentDto.QualityRequest.builder()
+                .deliveredQuantity(200L)
+                .defectQuantity(5L)
+                .defectType("외관 불량")
+                .build();
+        when(enrollmentRepository.findById(11L)).thenReturn(Optional.of(enrollment));
 
-        assertThatThrownBy(() -> enrollmentService.cancel(999L, 11L))
-                .isInstanceOf(AccessDeniedException.class);
+        EnrollmentDto.QualityResponse response = enrollmentService.updateQuality(3L, 11L, request);
 
-        assertThat(mine.getStatus()).isEqualTo(Enrollment.Status.PENDING);
-        verifyNoInteractions(paymentServiceClient);
+        assertThat(response.getDefectRate()).isEqualByComparingTo("2.50");
+        assertThat(response.getDeliveredQuantity()).isEqualTo(200L);
+        assertThat(response.getDefectQuantity()).isEqualTo(5L);
+        verify(courseServiceClient).applyPerformance(7L, 200L, 5L, null, null, null);
     }
 
-    /**
-     * 결제가 몇 초 만에 끝나므로 발주 직후 취소를 누르면 이벤트 처리보다 취소가 먼저 도착한다.
-     * 상태를 보지 않고 덮어쓰면 취소한 발주가 되살아난다.
-     */
     @Test
-    void activateSkipsCancelledEnrollment() {
-        Enrollment cancelled = Enrollment.builder().userId(3L).courseId(7L).build();
-        cancelled.cancel();
-        when(enrollmentRepository.findByUserIdAndCourseId(3L, 7L)).thenReturn(Optional.of(cancelled));
+    void qualityUpdateAppliesOnlyDifferenceToSupplierMetrics() {
+        Enrollment enrollment = Enrollment.builder()
+                .userId(3L)
+                .courseId(7L)
+                .status(Enrollment.Status.ACTIVE)
+                .build();
+        enrollment.updateQuality(200L, 5L, "외관 불량");
 
-        enrollmentService.activateEnrollment(3L, 7L);
+        EnrollmentDto.QualityRequest request = EnrollmentDto.QualityRequest.builder()
+                .deliveredQuantity(220L)
+                .defectQuantity(6L)
+                .defectType("규격 불량")
+                .build();
+        when(enrollmentRepository.findById(11L)).thenReturn(Optional.of(enrollment));
 
-        assertThat(cancelled.getStatus()).isEqualTo(Enrollment.Status.CANCELLED);
-        verifyNoInteractions(courseServiceClient);
-        verifyNoInteractions(kafkaProducer);
+        enrollmentService.updateQuality(3L, 11L, request);
+
+        verify(courseServiceClient).applyPerformance(7L, 20L, 1L, null, null, null);
+    }
+
+    @Test
+    void qualityRegistrationRejectsOtherUsersOrder() {
+        Enrollment enrollment = Enrollment.builder()
+                .userId(3L)
+                .courseId(7L)
+                .status(Enrollment.Status.ACTIVE)
+                .build();
+        EnrollmentDto.QualityRequest request = EnrollmentDto.QualityRequest.builder()
+                .deliveredQuantity(100L)
+                .defectQuantity(0L)
+                .defectType("해당 없음")
+                .build();
+        when(enrollmentRepository.findById(11L)).thenReturn(Optional.of(enrollment));
+
+        assertThatThrownBy(() -> enrollmentService.updateQuality(999L, 11L, request))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     /**

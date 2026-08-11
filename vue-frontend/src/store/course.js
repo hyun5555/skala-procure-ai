@@ -113,6 +113,22 @@ export const useCourseStore = defineStore('course', () => {
     }
   }
 
+  async function fetchCoursesByCategory(category) {
+    loading.value = true
+    error.value = null
+    try {
+      const res = await courseApi.getByCategory(category)
+      const rawCourses = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : []
+      courses.value = rawCourses.map(normalizeCourse)
+    } catch (e) {
+      error.value = e.message || '품명별 공급기업 목록을 불러오지 못했습니다.'
+      courses.value = []
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function fetchCourse(id) {
     loading.value = true
     error.value = null
@@ -159,6 +175,7 @@ export const useCourseStore = defineStore('course', () => {
     normalizeCourse,
     getThumbnail,
     fetchCourses,
+    fetchCoursesByCategory,
     fetchCourse,
     setCategory
   }

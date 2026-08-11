@@ -57,6 +57,47 @@ public class EnrollmentDto {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    public static class QualityRequest {
+        @NotNull(message = "납품 수량은 필수입니다")
+        @Positive(message = "납품 수량은 1 이상이어야 합니다")
+        private Long deliveredQuantity;
+
+        @NotNull(message = "불량 수량은 필수입니다")
+        @PositiveOrZero(message = "불량 수량은 0 이상이어야 합니다")
+        private Long defectQuantity;
+
+        @NotBlank(message = "불량 유형은 필수입니다")
+        @Size(max = 100, message = "불량 유형은 100자 이하여야 합니다")
+        private String defectType;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class QualityResponse {
+        private Long deliveredQuantity;
+        private Long defectQuantity;
+        private String defectType;
+        private BigDecimal defectRate;
+        private LocalDateTime updatedAt;
+
+        public static QualityResponse from(Enrollment enrollment) {
+            if (enrollment.getDeliveredQty() == null) return null;
+            return QualityResponse.builder()
+                    .deliveredQuantity(enrollment.getDeliveredQty())
+                    .defectQuantity(enrollment.getDefectQty())
+                    .defectType(enrollment.getDefectType())
+                    .defectRate(enrollment.getDefectRate())
+                    .updatedAt(enrollment.getEvaluatedAt())
+                    .build();
+        }
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class OrderRequestResponse {
         private Long quantity;
         private String unit;
@@ -184,6 +225,7 @@ public class EnrollmentDto {
         private LocalDateTime createdAt;
         private OrderRequestResponse orderRequest;
         private PerformanceResponse performance;
+        private QualityResponse quality;
 
         // 추가
         private CourseSummary course;
@@ -197,6 +239,7 @@ public class EnrollmentDto {
                     .createdAt(enrollment.getCreatedAt())
                     .orderRequest(OrderRequestResponse.from(enrollment))
                     .performance(PerformanceResponse.from(enrollment))
+                    .quality(QualityResponse.from(enrollment))
                     .build();
         }
 
@@ -210,6 +253,7 @@ public class EnrollmentDto {
                     .course(course)
                     .orderRequest(OrderRequestResponse.from(enrollment))
                     .performance(PerformanceResponse.from(enrollment))
+                    .quality(QualityResponse.from(enrollment))
                     .build();
         }
     }

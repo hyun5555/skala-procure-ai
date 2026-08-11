@@ -45,18 +45,14 @@ public class EnrollmentController {
         return ResponseEntity.ok(EnrollmentDto.ApiResponse.success(response));
     }
 
-    /**
-     * DELETE /enrollments/{id} - 발주 취소
-     * Gateway가 전달한 X-User-Id 로 발주자를 대조한다.
-     * 행을 지우지 않고 상태를 CANCELLED 로 바꾼다.
-     */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<EnrollmentDto.ApiResponse<EnrollmentDto.EnrollmentResponse>> cancel(
-            @PathVariable Long id,
+    @PutMapping("/{enrollmentId}/quality")
+    public ResponseEntity<EnrollmentDto.ApiResponse<EnrollmentDto.QualityResponse>> updateQuality(
+            @PathVariable Long enrollmentId,
+            @Valid @RequestBody EnrollmentDto.QualityRequest request,
             @RequestHeader("X-User-Id") Long userId) {
 
-        EnrollmentDto.EnrollmentResponse response = enrollmentService.cancel(userId, id);
-        return ResponseEntity.ok(EnrollmentDto.ApiResponse.success(response));
+        return ResponseEntity.ok(EnrollmentDto.ApiResponse.success(
+                enrollmentService.updateQuality(userId, enrollmentId, request)));
     }
 
     /**

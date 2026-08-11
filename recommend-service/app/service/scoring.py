@@ -8,7 +8,7 @@
 
     표준        QCD 프레임 · PPM · OTD · PPV 정의
                 OTD 목표선 95% · PPM 100/1,000/10,000 구간 · 로그 척도(Six Sigma DPMO)
-    우리 설정   배점 50/30/20 · 곡선 형태 · 끝점(PPM 3%, OTD 80%, PPV +10%) · 10건 문턱
+    우리 설정   배점 50/30/20 · 곡선 형태 · 끝점(PPM 3%, OTD 80%, PPV +10%)
 
 PPM 기준선은 산업 편차가 크다. 100 PPM 은 자동차·전자 기준이고 강관·주철관 같은
 토목자재는 더 느슨한 것이 보통이다. 우리 기준이 엄격한 쪽이다.
@@ -17,10 +17,9 @@ PPM 기준선은 산업 편차가 크다. 100 PPM 은 자동차·전자 기준�
     D  OTD  On-Time Delivery         30점   납기준수 건수 ÷ 평가 건수 × 100
     C  PPV  Purchase Price Variance  20점   (Σ실제청구 − Σ견적) ÷ Σ견적 × 100
 
-**QCD 전체는 평가 10건 이상인 공급기업에만 실제 성과로 채운다.** 표본이 적으면
-비율이 요동친다. 1건 평가에서 불량 0이 나왔다고 무결점 업체로 볼 수는 없다.
-10건 미만은 각 축에 **기본점수(만점의 절반)** 를 준다. 실제 공급기업 분포에서 뽑은
-중앙값이 아니라 중립값이다 — 표본이 쌓이기 전에는 좋다고도 나쁘다고도 할 수 없으므로
+검증 기간에는 평가가 1건이라도 있으면 실제 QCD 성과를 채운다. 평가가 전혀 없는
+공급기업만 각 축에 **기본점수(만점의 절반)** 를 준다. 실제 공급기업 분포에서 뽑은
+중앙값이 아니라 중립값이다 — 평가가 없을 때 좋다고도 나쁘다고도 할 수 없으므로
 가운데에 둔다. 0점을 주면 신규 공급기업이 영원히 추천되지 않아 거래 이력을 쌓을
 기회 자체가 사라진다.
 overview.md 130행의 "신규 공급기업은 기본점수로 초기 평가한다" 가 이 뜻이다.
@@ -29,9 +28,9 @@ import math
 from decimal import Decimal
 from typing import List, Optional
 
-# 실제 성과로 QCD 를 채우기 위한 최소 평가 건수.
-# 이보다 적으면 비율의 신뢰구간이 너무 넓어 순위를 뒤집는다.
-MIN_EVALUATIONS = 10
+# 검증 기간에는 첫 평가부터 QCD 점수에 반영한다.
+# 운영 기준으로 복귀할 때에는 이 값을 10으로 되돌린다.
+MIN_EVALUATIONS = 1
 
 MAX_QUALITY = 50
 MAX_DELIVERY = 30
@@ -113,7 +112,19 @@ def cost_score(cost_variance_rate: Optional[float]) -> float:
 def score_course(course) -> dict:
     """품목 하나를 채점하고 근거를 함께 만든다."""
     evaluated = course.evaluatedCount or 0
-    trusted = evaluated >= MIN_EVALUATIONS
+    # 간편 품질 등록 화면은 Q(불량률)만 저장하고 납기/비용은 평가하지 않는다.
+    # 이때 evaluatedCount 는 납기 평가 건수라 0일 수 있지만 defectRate 는 실제
+    # 거래 결과다. 건수가 0이라는 이유로 실측 불량률까지 기본점수로 버리지 않는다.
+    has_measured_performance = any(
+        value is not None
+        for value in (
+            course.defectRate,
+            course.onTimeRate,
+            getattr(course, 'costVarianceRate', None),
+        )
+    )
+    trusted = evaluated >= MIN_EVALUATIONS or has_measured_performance
+    displayed_evaluated = max(evaluated, 1 if has_measured_performance else 0)
 
     defect_rate = _to_float(course.defectRate) if trusted else None
     on_time_rate = _to_float(course.onTimeRate) if trusted else None
@@ -128,7 +139,7 @@ def score_course(course) -> dict:
 
     reasons: List[str] = []
     if trusted:
-        # 세 지표를 같은 방식으로 방어한다. evaluatedCount 는 10 이상인데 컬럼 하나가
+        # 세 지표를 같은 방식으로 방어한다. evaluatedCount 는 기준 이상인데 컬럼 하나가
         # NULL 인 상태는 정상 경로로 생기지 않지만, 백필이나 집계 중 실패로 컬럼이
         # 따로 놀 수 있다. 여기서 TypeError 가 나면 추천 응답 전체가 실패한다.
         if defect_rate is not None:
@@ -139,7 +150,7 @@ def score_course(course) -> dict:
         if cost_variance is not None:
             word = '초과' if cost_variance > 0 else '절감'
             reasons.append(f'견적 대비 {abs(cost_variance):.1f}% {word}')
-        reasons.append(f'평가 {evaluated}건 기준')
+        reasons.append(f'평가 {displayed_evaluated}건 기준')
     else:
         reasons.append(f'거래 실적 부족 (평가 {evaluated}건 / {MIN_EVALUATIONS}건 필요)')
         reasons.append('QCD 는 기본점수로 대체')

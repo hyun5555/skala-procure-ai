@@ -65,14 +65,8 @@ public class EnrollmentService {
     /**
      * 결제 완료 이벤트를 받아 주문을 확정한다.
      *
-     * **PENDING 인 것만 확정한다.** 두 가지를 막는다.
-     *
-     * 하나. 결제가 몇 초 만에 끝나므로 사용자가 발주 직후 취소를 누르면 이벤트
-     * 처리보다 취소가 먼저 도착할 수 있다. 상태를 보지 않고 덮어쓰면 취소한 발주가
-     * ACTIVE 로 되살아나고, 결제는 CANCELLED 인데 발주는 ACTIVE 인 상태가 남는다.
-     * 거래건수도 취소했는데 올라간다.
-     *
-     * 둘. Kafka 는 at-least-once 라 payment.completed 가 두 번 올 수 있다.
+     * **PENDING 인 것만 확정한다.** Kafka 는 at-least-once 라
+     * payment.completed 가 두 번 올 수 있다.
      * 상태를 보지 않으면 거래건수가 두 번 올라간다.
      */
     @Transactional
@@ -100,51 +94,6 @@ public class EnrollmentService {
         );
 
         log.info("[EnrollmentService] 수강 활성화 완료 - enrollmentId: {}", enrollment.getId());
-    }
-
-    /**
-     * 발주 취소
-     *
-     * 상태만 CANCELLED 로 바꾸고 행은 남긴다. 결제 내역과 대조할 근거가 사라지면 안 된다.
-     *
-     * 이미 결제가 끝난 발주도 취소할 수 있다. Kafka 로 결제가 몇 초 만에 완료되어
-     * PENDING 은 사실상 스쳐 지나가므로, PENDING 만 허용하면 취소할 수 있는 발주가
-     * 없는 것과 같다.
-     *
-     * 결제 취소와 거래건수 감소는 실패해도 취소 자체를 막지 않는다. 각 클라이언트가
-     * 예외를 삼키고 로그만 남긴다. 그것 때문에 사용자가 취소를 못 하게 되는 편이 나쁘다.
-     *
-     * enrollments 에 UNIQUE (user_id, course_id) 가 있어 **취소한 품목을 다시 발주할
-     * 수는 없다.** 행을 남기는 대가다. 재발주를 허용하려면 제약을 풀어야 하고 그것은
-     * docs/constraints.md 의 5번 항목에 걸린다.
-     */
-    @Transactional
-    public EnrollmentDto.EnrollmentResponse cancel(Long userId, Long enrollmentId) {
-        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
-                .orElseThrow(() -> new IllegalArgumentException("발주를 찾을 수 없습니다: " + enrollmentId));
-
-        if (!enrollment.getUserId().equals(userId)) {
-            throw new AccessDeniedException("자신의 발주만 취소할 수 있습니다");
-        }
-
-        if (enrollment.getStatus() == Enrollment.Status.CANCELLED) {
-            throw new IllegalArgumentException("이미 취소된 발주입니다");
-        }
-
-        boolean wasActive = enrollment.getStatus() == Enrollment.Status.ACTIVE;
-        enrollment.cancel();
-
-        paymentServiceClient.cancelPayment(userId, enrollment.getCourseId());
-
-        // 거래건수는 ACTIVE 로 전환될 때 올라간다. PENDING 에서 취소하면 내릴 것이 없다.
-        if (wasActive) {
-            courseServiceClient.decreaseEnrollmentCount(enrollment.getCourseId());
-        }
-
-        log.info("[EnrollmentService] 발주 취소 - enrollmentId: {}, userId: {}, 이전 상태: {}",
-                enrollmentId, userId, wasActive ? "ACTIVE" : "PENDING");
-
-        return EnrollmentDto.EnrollmentResponse.from(enrollment);
     }
 
     /**
@@ -204,6 +153,50 @@ public class EnrollmentService {
                 enrollmentId, enrollment.getDefectRate(), enrollment.getOnTime());
 
         return EnrollmentDto.EnrollmentResponse.from(enrollment);
+    }
+
+    @Transactional
+    public EnrollmentDto.QualityResponse updateQuality(
+            Long userId, Long enrollmentId, EnrollmentDto.QualityRequest request) {
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new IllegalArgumentException("발주 정보를 찾을 수 없습니다: " + enrollmentId));
+
+        if (!enrollment.getUserId().equals(userId)) {
+            throw new AccessDeniedException("본인의 발주에만 품질 정보를 등록할 수 있습니다");
+        }
+        if (enrollment.getStatus() != Enrollment.Status.ACTIVE) {
+            throw new IllegalArgumentException("주문 확정된 발주에만 품질 정보를 등록할 수 있습니다");
+        }
+        if (request.getDefectQuantity() > request.getDeliveredQuantity()) {
+            throw new IllegalArgumentException("불량 수량은 납품 수량보다 많을 수 없습니다");
+        }
+        if (request.getDefectQuantity() > 0 && "해당 없음".equals(request.getDefectType())) {
+            throw new IllegalArgumentException("불량이 발생한 경우 불량 유형을 선택해야 합니다");
+        }
+        if (request.getDefectQuantity() == 0 && !"해당 없음".equals(request.getDefectType())) {
+            throw new IllegalArgumentException("불량 수량이 0이면 불량 유형은 해당 없음이어야 합니다");
+        }
+
+        // 품질 정보는 수정도 허용하므로 기존 값과의 차이만 공급기업 누적 지표에 반영한다.
+        // 매번 전체 수량을 더하면 '품질 수정'을 누를 때마다 불량률의 분모와 분자가
+        // 중복 누적된다. 최초 등록이면 기존 값이 0이라 입력값 전체가 그대로 반영된다.
+        long previousDeliveredQty = enrollment.getDeliveredQty() == null ? 0L : enrollment.getDeliveredQty();
+        long previousDefectQty = enrollment.getDefectQty() == null ? 0L : enrollment.getDefectQty();
+
+        enrollment.updateQuality(
+                request.getDeliveredQuantity(), request.getDefectQuantity(), request.getDefectType());
+
+        courseServiceClient.applyPerformance(
+                enrollment.getCourseId(),
+                enrollment.getDeliveredQty() - previousDeliveredQty,
+                enrollment.getDefectQty() - previousDefectQty,
+                null,
+                null,
+                null);
+
+        log.info("[EnrollmentService] 품질 정보 등록 - enrollmentId: {}, 불량률: {}%",
+                enrollmentId, enrollment.getDefectRate());
+        return EnrollmentDto.QualityResponse.from(enrollment);
     }
 
     /**

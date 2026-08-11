@@ -13,6 +13,10 @@ export const courseApi = {
     return api.get(`/api/courses/${id}`)
   },
 
+  getByCategory(category) {
+    return api.get(`/api/courses/category/${category}`)
+  },
+
   getMine() {
     return api.get('/api/courses/my')
   },
@@ -26,6 +30,6 @@ export const courseApi = {
   },
 
   updateStatus(id, status) {
-    return api.patch(`/api/courses/${id}/status`, { status })
+    return api.put(`/api/courses/${id}/status`, { status })
   }
 }

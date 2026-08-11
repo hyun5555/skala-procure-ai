@@ -136,6 +136,9 @@
               </div>
 
               <div class="course-card-actions">
+                <router-link :to="`/courses/${course.id}/edit`" class="action-btn action-secondary">
+                  품목 수정
+                </router-link>
                 <router-link :to="`/courses/${course.id}`" class="action-btn action-primary">
                   품목 상세
                 </router-link>
@@ -694,6 +697,7 @@ onMounted(loadInstructorCourses)
 .course-card-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .action-btn {
@@ -712,6 +716,8 @@ onMounted(loadInstructorCourses)
   background: var(--color-primary);
   color: white;
 }
+
+.action-secondary { border:1px solid var(--color-border);background:#fff;color:var(--color-text-secondary); }
 
 .action-primary:hover {
   opacity: 0.92;

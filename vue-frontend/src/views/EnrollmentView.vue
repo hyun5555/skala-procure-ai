@@ -43,21 +43,21 @@
                 <span>희망 납품일 {{ item.orderRequest.deliveryDate }}</span>
                 <span>납품 장소 {{ item.orderRequest.deliveryPlace }}</span>
                 <span v-if="item.orderRequest.contactName || item.orderRequest.contactPhone">담당자 {{ [item.orderRequest.contactName, item.orderRequest.contactPhone].filter(Boolean).join(' · ') }}</span>
+                <span v-if="paymentFor(item)">결제 {{ formatMoney(paymentFor(item).amount) }} · {{ paymentStatusLabel(paymentFor(item).status) }}</span>
               </div>
             </div>
 
             <div class="enroll-status">
               <span
-                :class="[
-                  'status-badge',
-                  item.status === 'ACTIVE' ? 'status-active' : 'status-pending'
-                ]"
+                :class="['status-badge', statusClass(item.status)]"
               >
-                {{ item.status === 'ACTIVE' ? '주문 확정' : '결제 대기' }}
+                {{ orderStatusLabel(item.status) }}
               </span>
-              <button type="button" class="btn btn-ghost btn-sm" @click="openOrderDetail(item)">
-                발주 상세
-              </button>
+              <span v-if="item.quality" class="quality-badge">품질 등록 · 불량률 {{ item.quality.defectRate }}%</span>
+              <div class="card-actions">
+                <button type="button" class="btn btn-ghost btn-sm" @click="openOrderDetail(item)">발주 상세</button>
+                <button v-if="item.status === 'ACTIVE'" type="button" class="btn btn-primary btn-sm" @click="openOrderDetail(item, true)">{{ item.quality ? '품질 수정' : '품질 등록' }}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -83,7 +83,7 @@
 
           <div class="detail-product">
             <div><span>발주 품목</span><strong>{{ selectedEnrollment.course?.title }}</strong><small>{{ selectedEnrollment.course?.instructorName || '공급기업' }}</small></div>
-            <span :class="['status-badge',selectedEnrollment.status==='ACTIVE'?'status-active':'status-pending']">{{ selectedEnrollment.status==='ACTIVE'?'주문 확정':'결제 대기' }}</span>
+            <span :class="['status-badge',statusClass(selectedEnrollment.status)]">{{ orderStatusLabel(selectedEnrollment.status) }}</span>
           </div>
 
           <div v-if="selectedEnrollment.orderRequest" class="detail-fields">
@@ -98,6 +98,29 @@
           </div>
           <div v-else class="missing-detail"><b>입력 상세정보가 없습니다.</b><p>현재 서버에 저장된 기존 발주는 품목과 주문 상태만 확인할 수 있습니다.</p></div>
 
+          <section v-if="paymentFor(selectedEnrollment)" class="payment-panel">
+            <div><span>결제 금액</span><strong>{{ formatMoney(paymentFor(selectedEnrollment).amount) }}</strong></div>
+            <div><span>결제 상태</span><strong>{{ paymentStatusLabel(paymentFor(selectedEnrollment).status) }}</strong></div>
+            <small>거래번호 {{ paymentFor(selectedEnrollment).transactionId || '-' }}</small>
+          </section>
+
+          <section v-if="selectedEnrollment.status === 'ACTIVE'" ref="qualitySection" class="quality-section" aria-labelledby="quality-heading">
+            <div class="quality-heading">
+              <div><span>DELIVERY QUALITY</span><h3 id="quality-heading">납품 품질관리</h3></div>
+              <div v-if="selectedEnrollment.quality" class="quality-score"><small>최근 불량률</small><strong>{{ selectedEnrollment.quality.defectRate }}%</strong></div>
+            </div>
+            <p class="quality-description">주문 수량 대비 실제 불량 수량을 등록하면 불량률을 자동 계산합니다.</p>
+            <form class="quality-form" novalidate @submit.prevent="submitQuality">
+              <label :class="{ invalid: qualityErrors.deliveredQuantity }"><span>납품 수량 <em>*</em></span><input ref="qualityFirstInput" v-model.number="qualityForm.deliveredQuantity" type="number" min="1" step="1" inputmode="numeric" @input="clearQualityError('deliveredQuantity')"><small v-if="qualityErrors.deliveredQuantity" class="quality-field-error">{{ qualityErrors.deliveredQuantity }}</small></label>
+              <label :class="{ invalid: qualityErrors.defectQuantity }"><span>불량 수량 <em>*</em></span><input ref="qualityDefectInput" v-model.number="qualityForm.defectQuantity" type="number" min="0" step="1" inputmode="numeric" @input="clearQualityError('defectQuantity')"><small v-if="qualityErrors.defectQuantity" class="quality-field-error">{{ qualityErrors.defectQuantity }}</small></label>
+              <label class="quality-wide" :class="{ invalid: qualityErrors.defectType }"><span>불량 유형 <em>*</em></span><select ref="qualityTypeInput" v-model="qualityForm.defectType" @change="clearQualityError('defectType')"><option value="">선택해 주세요</option><option v-for="option in defectTypeOptions" :key="option" :value="option">{{ option }}</option></select><small v-if="qualityErrors.defectType" class="quality-field-error">{{ qualityErrors.defectType }}</small></label>
+              <div class="quality-preview"><span>예상 불량률</span><strong>{{ qualityPreviewRate }}%</strong></div>
+              <p v-if="qualityError" class="quality-message error" role="alert">{{ qualityError }}</p>
+              <p v-if="qualitySuccess" class="quality-message success" role="status">{{ qualitySuccess }}</p>
+              <button type="submit" class="btn btn-primary quality-submit" :disabled="qualitySubmitting">{{ qualitySubmitting ? '저장 중...' : selectedEnrollment.quality ? '품질 정보 수정' : '품질 정보 등록' }}</button>
+            </form>
+          </section>
+
           <div class="detail-meta"><span>발주번호 #{{ selectedEnrollment.id }}</span><span>접수일 {{ formatCreatedAt(selectedEnrollment.createdAt) }}</span></div>
           <div class="detail-actions"><button type="button" class="btn btn-primary" @click="closeOrderDetail">확인</button></div>
         </section>
@@ -107,27 +130,44 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onBeforeUnmount, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import { enrollmentApi } from '@/api/enrollment.js'
+import { paymentApi } from '@/api/payment.js'
 import { useAuthStore } from '@/store/auth.js'
 import { useCourseStore } from '@/store/course.js'
-import { getDemoEnrollments } from '@/data/demo.js'
+import { getDemoEnrollments, getDemoQualityRecord, saveDemoQualityRecord } from '@/data/demo.js'
 
 const router = useRouter()
 const auth = useAuthStore()
 const courseStore = useCourseStore()
 
 const enrollments = ref([])
+const payments = ref([])
 const loading = ref(true)
 const selectedEnrollment = ref(null)
 const detailCloseButton = ref(null)
+const qualitySection = ref(null)
+const qualityFirstInput = ref(null)
+const qualityDefectInput = ref(null)
+const qualityTypeInput = ref(null)
+const qualitySubmitting = ref(false)
+const qualityError = ref('')
+const qualitySuccess = ref('')
+const qualityForm = reactive({ deliveredQuantity: null, defectQuantity: 0, defectType: '해당 없음' })
+const qualityErrors = reactive({ deliveredQuantity: '', defectQuantity: '', defectType: '' })
 let bodyOverflowBeforeModal = ''
 let focusedElementBeforeModal = null
 
 const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
+const defectTypeOptions = ['해당 없음', '외관 불량', '규격 불량', '성능 불량', '파손', '기타']
+const qualityPreviewRate = computed(() => {
+  const delivered = Number(qualityForm.deliveredQuantity)
+  const defects = Number(qualityForm.defectQuantity)
+  return delivered > 0 && defects >= 0 ? Number(((defects / delivered) * 100).toFixed(2)) : 0
+})
 
 const categoryConfig = {
   '파형강관': { bg: 'thumb-teal', badge: 'badge-teal' }, '파형강관이음관': { bg: 'thumb-teal', badge: 'badge-teal' },
@@ -144,20 +184,117 @@ function normalizeEnrollment(item) {
   return {
     ...item,
     course: courseStore.normalizeCourse(item.course),
-    orderRequest: item.orderRequest || null
+    orderRequest: item.orderRequest || null,
+    quality: item.quality || item.qualityRecord || (auth.isDemo ? getDemoQualityRecord(item.id) : null)
   }
 }
 
-function openOrderDetail(item) {
+function orderStatusLabel(status) {
+  return { PENDING: '결제 대기', ACTIVE: '주문 확정' }[status] || '주문 종료'
+}
+
+function statusClass(status) {
+  return status === 'ACTIVE' ? 'status-active' : status === 'PENDING' ? 'status-pending' : 'status-closed'
+}
+
+function paymentStatusLabel(status) {
+  return { PENDING: '처리 중', COMPLETED: '결제 완료', FAILED: '결제 실패' }[status] || '결제 종료'
+}
+
+function paymentFor(item) {
+  return payments.value.find(payment => Number(payment.courseId) === Number(item?.courseId)) || null
+}
+
+function formatMoney(value) {
+  if (value === null || value === undefined || value === '') return '-'
+  return `${Number(value).toLocaleString()}원`
+}
+
+function resetQualityErrors() {
+  Object.keys(qualityErrors).forEach(key => { qualityErrors[key] = '' })
+}
+
+function clearQualityError(field) {
+  qualityErrors[field] = ''
+  if (!Object.values(qualityErrors).some(Boolean)) qualityError.value = ''
+}
+
+function setQualityForm(item) {
+  const saved = item.quality
+  qualityForm.deliveredQuantity = saved?.deliveredQuantity ?? item.orderRequest?.quantity ?? null
+  qualityForm.defectQuantity = saved?.defectQuantity ?? 0
+  qualityForm.defectType = saved?.defectType || '해당 없음'
+  resetQualityErrors()
+  qualityError.value = ''
+  qualitySuccess.value = ''
+}
+
+async function openOrderDetail(item, focusQuality = false) {
   selectedEnrollment.value = item
+  setQualityForm(item)
   focusedElementBeforeModal = document.activeElement
   bodyOverflowBeforeModal = document.body.style.overflow
   document.body.style.overflow = 'hidden'
-  nextTick(() => detailCloseButton.value?.focus())
+  nextTick(() => {
+    if (focusQuality) {
+      qualitySection.value?.scrollIntoView({ block: 'center' })
+      qualityFirstInput.value?.focus()
+    } else detailCloseButton.value?.focus()
+  })
+  const payment = paymentFor(item)
+  if (!auth.isDemo && payment?.paymentId) {
+    try {
+      const res = await paymentApi.getById(payment.paymentId)
+      const freshPayment = res.data?.data || res.data
+      const index = payments.value.findIndex(value => value.paymentId === freshPayment.paymentId)
+      if (index >= 0) payments.value[index] = freshPayment
+    } catch { /* 목록 응답을 유지한다 */ }
+  }
+}
+
+function validateQuality() {
+  resetQualityErrors()
+  const delivered = Number(qualityForm.deliveredQuantity)
+  const defects = Number(qualityForm.defectQuantity)
+  if (!Number.isInteger(delivered) || delivered < 1) qualityErrors.deliveredQuantity = '1 이상의 정수로 입력해 주세요.'
+  if (!Number.isInteger(defects) || defects < 0) qualityErrors.defectQuantity = '0 이상의 정수로 입력해 주세요.'
+  else if (Number.isInteger(delivered) && defects > delivered) qualityErrors.defectQuantity = '불량 수량은 납품 수량보다 많을 수 없습니다.'
+  if (!qualityForm.defectType) qualityErrors.defectType = '불량 유형을 선택해 주세요.'
+  else if (defects > 0 && qualityForm.defectType === '해당 없음') qualityErrors.defectType = '발생한 불량 유형을 선택해 주세요.'
+  else if (defects === 0 && qualityForm.defectType !== '해당 없음') qualityErrors.defectType = '불량 수량이 0이면 해당 없음을 선택해 주세요.'
+  const firstInvalid = Object.keys(qualityErrors).find(key => qualityErrors[key])
+  if (!firstInvalid) return true
+  qualityError.value = '품질 입력값을 확인해 주세요.'
+  const refs = { deliveredQuantity: qualityFirstInput, defectQuantity: qualityDefectInput, defectType: qualityTypeInput }
+  nextTick(() => refs[firstInvalid]?.value?.focus())
+  return false
+}
+
+async function submitQuality() {
+  if (!validateQuality() || !selectedEnrollment.value?.id) return
+  qualitySubmitting.value = true
+  qualityError.value = ''
+  qualitySuccess.value = ''
+  const payload = { deliveredQuantity: Number(qualityForm.deliveredQuantity), defectQuantity: Number(qualityForm.defectQuantity), defectType: qualityForm.defectType }
+  try {
+    const quality = auth.isDemo
+      ? saveDemoQualityRecord(selectedEnrollment.value.id, payload)
+      : ((await enrollmentApi.updateQuality(selectedEnrollment.value.id, payload)).data?.data)
+    selectedEnrollment.value.quality = quality
+    const index = enrollments.value.findIndex(item => item.id === selectedEnrollment.value.id)
+    if (index >= 0) enrollments.value[index].quality = quality
+    qualitySuccess.value = '납품 품질 정보가 저장되었습니다.'
+  } catch (error) {
+    qualityError.value = error.response?.data?.message || '품질 정보 저장에 실패했습니다.'
+  } finally { qualitySubmitting.value = false }
 }
 
 function closeOrderDetail() {
+  if (qualitySubmitting.value) return
   selectedEnrollment.value = null
+  qualityError.value = ''
+  qualitySuccess.value = ''
+  resetQualityErrors()
   document.body.style.overflow = bodyOverflowBeforeModal
   nextTick(() => focusedElementBeforeModal?.focus())
 }
@@ -184,16 +321,24 @@ onMounted(async () => {
       enrollments.value = getDemoEnrollments().map(normalizeEnrollment)
       return
     }
-    const res = await enrollmentApi.getMyEnrollments()
-    console.log('[EnrollmentView] my enrollments response:', res.data)
+    const [enrollmentResult, paymentResult] = await Promise.allSettled([
+      enrollmentApi.getMyEnrollments(),
+      paymentApi.getByUser(auth.user.id)
+    ])
+    if (enrollmentResult.status === 'rejected') throw enrollmentResult.reason
+    const enrollmentRes = enrollmentResult.value
+    console.log('[EnrollmentView] my enrollments response:', enrollmentRes.data)
 
-    if (Array.isArray(res.data?.data)) {
-      enrollments.value = res.data.data.map(normalizeEnrollment)
-    } else if (Array.isArray(res.data)) {
-      enrollments.value = res.data.map(normalizeEnrollment)
+    if (Array.isArray(enrollmentRes.data?.data)) {
+      enrollments.value = enrollmentRes.data.data.map(normalizeEnrollment)
+    } else if (Array.isArray(enrollmentRes.data)) {
+      enrollments.value = enrollmentRes.data.map(normalizeEnrollment)
     } else {
       enrollments.value = []
     }
+    const paymentRes = paymentResult.status === 'fulfilled' ? paymentResult.value : null
+    const paymentList = Array.isArray(paymentRes?.data?.data) ? paymentRes.data.data : Array.isArray(paymentRes?.data) ? paymentRes.data : []
+    payments.value = paymentList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   } catch (error) {
     console.error('[EnrollmentView] failed to load enrollments:', error)
     enrollments.value = []
@@ -342,6 +487,8 @@ onBeforeUnmount(() => {
   background: #FAEEDA;
   color: #854F0B;
 }
+.status-closed{background:#f1f2f3;color:#687078}
+.quality-badge{padding:4px 10px;border-radius:20px;background:#eef7ff;color:var(--color-accent-dark);font-size:10px}.card-actions{display:flex;gap:7px}
 
 .btn-sm {
   padding: 7px 14px;
@@ -425,7 +572,10 @@ onBeforeUnmount(() => {
 .missing-detail p { margin-top:5px;font-size:11px;color:var(--color-text-muted); }
 .detail-meta { display:flex;gap:14px;margin:17px 24px 0;padding-top:12px;border-top:1px solid var(--color-border);font-size:10px;color:var(--color-text-muted); }
 .detail-actions { display:flex;justify-content:flex-end;padding:17px 24px 22px; }
+.payment-panel{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 24px 0;padding:14px;border:1px solid var(--color-border);border-radius:10px;background:var(--color-bg-secondary)}.payment-panel div{display:flex;flex-direction:column;gap:3px}.payment-panel span,.payment-panel small{font-size:10px;color:var(--color-text-muted)}.payment-panel strong{font-size:13px}.payment-panel small{grid-column:1/-1}
 .detail-actions .btn { min-width:100px;justify-content:center; }
+
+.quality-section{margin:22px 24px 0;padding:20px;border:1px solid #cfe5f3;border-radius:13px;background:#f7fbfe;scroll-margin:20px}.quality-heading{display:flex;align-items:center;justify-content:space-between;gap:20px}.quality-heading>div:first-child>span{display:block;font-size:8px;font-weight:800;letter-spacing:.15em;color:var(--color-accent-dark)}.quality-heading h3{margin-top:3px;font-size:17px;letter-spacing:-.025em}.quality-score{min-width:84px;padding:8px 12px;border-radius:9px;background:#fff;text-align:right;box-shadow:var(--shadow-sm)}.quality-score small{display:block;font-size:9px;color:var(--color-text-muted)}.quality-score strong{color:var(--color-accent-dark);font-size:18px}.quality-description{margin:8px 0 15px;font-size:11px;line-height:1.55;color:var(--color-text-muted)}.quality-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.quality-form label>span{display:block;margin-bottom:6px;font-size:10px;font-weight:700;color:var(--color-text-secondary)}.quality-form em{color:#c44747;font-style:normal}.quality-form input,.quality-form select{width:100%;height:42px;padding:0 12px;border:1px solid var(--color-border);border-radius:8px;background:#fff;color:var(--color-text-primary);font:inherit;font-size:12px;outline:none}.quality-form input:focus,.quality-form select:focus{border-color:var(--color-accent);box-shadow:0 0 0 3px var(--color-primary-light)}.quality-form label.invalid input,.quality-form label.invalid select{border-color:#dc6464;background:#fffafa;box-shadow:0 0 0 3px rgba(220,100,100,.1)}.quality-wide{grid-column:1/-1}.quality-field-error{display:block;margin-top:5px;color:#b42318;font-size:9px;font-weight:600}.quality-preview{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:#e9f5fc;font-size:10px;color:var(--color-text-secondary)}.quality-preview strong{color:var(--color-accent-dark);font-size:15px}.quality-message{align-self:center;font-size:10px;font-weight:600}.quality-message.error{color:#b42318}.quality-message.success{color:#277258}.quality-submit{grid-column:1/-1;justify-content:center}
 
 @keyframes detailIn { from{opacity:0;transform:translateY(10px) scale(.985)} to{opacity:1;transform:translateY(0) scale(1)} }
 
@@ -439,6 +589,7 @@ onBeforeUnmount(() => {
   .detail-wide { grid-column:auto; }
   .detail-head,.detail-actions { padding-left:18px;padding-right:18px; }
   .detail-product,.missing-detail,.detail-meta { margin-left:18px;margin-right:18px; }
+  .payment-panel,.quality-section{margin-left:18px;margin-right:18px}.quality-form{grid-template-columns:1fr}.quality-wide,.quality-submit{grid-column:auto}
   .profile-card { align-items:flex-start;flex-wrap:wrap;padding:18px; }
   .profile-info { min-width:calc(100% - 64px); }
   .buyer-badge { margin-left:64px; }

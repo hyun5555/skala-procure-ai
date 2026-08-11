@@ -7,7 +7,10 @@ export const enrollmentApi = {
   enroll(orderRequest) {
     return api.post('/api/enrollments', orderRequest)
   },
-  cancel(enrollmentId) {
-    return api.delete(`/api/enrollments/${enrollmentId}`)
+  evaluate(enrollmentId, performance) {
+    return api.patch(`/api/enrollments/${enrollmentId}/performance`, performance)
+  },
+  updateQuality(enrollmentId, quality) {
+    return api.put(`/api/enrollments/${enrollmentId}/quality`, quality)
   }
 }

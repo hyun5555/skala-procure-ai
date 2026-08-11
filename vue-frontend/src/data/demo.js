@@ -40,7 +40,8 @@ const DEMO_COURSES = [
 export function getDemoCourses() {
   const added = JSON.parse(sessionStorage.getItem('demo_courses') || '[]')
   const statuses = JSON.parse(sessionStorage.getItem('demo_course_statuses') || '{}')
-  return [...added, ...DEMO_COURSES].map(course => ({ ...course, status: statuses[String(course.id)] || course.status }))
+  const overrides = JSON.parse(sessionStorage.getItem('demo_course_overrides') || '{}')
+  return [...added, ...DEMO_COURSES].map(course => ({ ...course, ...overrides[String(course.id)], status: statuses[String(course.id)] || course.status }))
 }
 
 export function addDemoCourse(course) {
@@ -54,6 +55,22 @@ export function updateDemoCourseStatus(courseId, status) {
   statuses[String(courseId)] = status
   sessionStorage.setItem('demo_course_statuses', JSON.stringify(statuses))
   return status
+}
+
+export function updateDemoCourse(courseId, changes) {
+  const added = JSON.parse(sessionStorage.getItem('demo_courses') || '[]')
+  const index = added.findIndex(course => Number(course.id) === Number(courseId))
+  if (index >= 0) {
+    added[index] = { ...added[index], ...changes }
+    sessionStorage.setItem('demo_courses', JSON.stringify(added))
+    return added[index]
+  }
+  const exists = DEMO_COURSES.some(course => Number(course.id) === Number(courseId))
+  if (!exists) throw new Error('데모 품목을 찾을 수 없습니다.')
+  const overrides = JSON.parse(sessionStorage.getItem('demo_course_overrides') || '{}')
+  overrides[String(courseId)] = { ...(overrides[String(courseId)] || {}), ...changes }
+  sessionStorage.setItem('demo_course_overrides', JSON.stringify(overrides))
+  return overrides[String(courseId)]
 }
 
 export function getDemoEnrollments() {
@@ -80,4 +97,25 @@ export function addDemoEnrollment(course, orderRequest = null) {
   sessionStorage.setItem('demo_enrollments', JSON.stringify(list))
   if (orderRequest) saveOrderRequest(9001, course.id, orderRequest)
   return enrollment
+}
+
+export function getDemoQualityRecord(enrollmentId) {
+  const records = JSON.parse(sessionStorage.getItem('demo_quality_records') || '{}')
+  return records[String(enrollmentId)] || null
+}
+
+export function saveDemoQualityRecord(enrollmentId, quality) {
+  const records = JSON.parse(sessionStorage.getItem('demo_quality_records') || '{}')
+  const deliveredQuantity = Number(quality.deliveredQuantity)
+  const defectQuantity = Number(quality.defectQuantity)
+  const record = {
+    deliveredQuantity,
+    defectQuantity,
+    defectType: quality.defectType,
+    defectRate: deliveredQuantity > 0 ? Number(((defectQuantity / deliveredQuantity) * 100).toFixed(2)) : 0,
+    updatedAt: new Date().toISOString()
+  }
+  records[String(enrollmentId)] = record
+  sessionStorage.setItem('demo_quality_records', JSON.stringify(records))
+  return record
 }
