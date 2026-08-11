@@ -73,7 +73,10 @@ class EnrollmentServiceTest {
         assertThat(response.getOrderRequest().getQuantity()).isEqualTo(12L);
         assertThat(response.getOrderRequest().getDeliveryPlace()).isEqualTo("서울 공장");
         assertThat(response.getOrderRequest().getEstimatedTotal()).isEqualByComparingTo("15006.00");
-        verify(paymentServiceClient).requestPayment(eq(3L), eq(7L), eq(BigDecimal.valueOf(99000)));
+        // 계산한 견적이 그대로 결제로 넘어가는지 고정한다.
+        // 이 자리에 99,000원 상수가 박혀 있었다. 바로 위에서 estimatedTotal 을
+        // 계산해 놓고 쓰지 않는 형태라 같은 실수가 다시 나기 쉽다.
+        verify(paymentServiceClient).requestPayment(eq(3L), eq(7L), eq(expectedTotal));
         verify(enrollmentWriteService).createPendingEnrollment(3L, request, expectedTotal);
     }
 

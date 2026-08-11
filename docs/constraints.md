@@ -97,23 +97,48 @@ UNIQUE KEY uq_user_course (user_id, course_id)
 
 바꿀 수는 있지만 자바 수정과 재빌드가 필요한 항목이다.
 
-### 결제 금액이 고정되어 있다
+### 결제 금액 — 2026-08-11 해소
 
-`enrollment-service/src/main/java/com/lecture/enrollment/service/EnrollmentService.java` 에서 발주 시 결제 금액이 하드코딩되어 있다.
+발주 시 결제 금액이 99,000원으로 하드코딩되어 있었다. 원본 템플릿이 수강료 하나로 고정인 온라인 강의 플랫폼이라 남아 있던 상수다.
 
 ```java
 paymentServiceClient.requestPayment(userId, courseId, BigDecimal.valueOf(99000));
 ```
 
-주문마다 금액이 다른 도메인이면 결제 내역에 실제와 다른 값이 남는다. 선택지는 셋이다.
+바로 위 행에서 `estimatedTotal` 을 단가 × 수량으로 정확히 계산해놓고 그 값을 쓰지 않았다. 그래서 화면에는 견적이, 결제 내역에는 99,000원이 남았다. 실제로 이렇게 어긋나 있었다.
 
-| 방법 | 자바 수정 | 결과 |
+```text
+품목 폴리에틸렌피복스테인리스강관   단가 3,200원 × 수량 12m
+  예상 견적  38,400원
+  실제 결제  99,000원
+```
+
+**Sprint2 Planning 에서 "계산한 견적을 그대로 넘긴다" 로 정했다.** 계산이 이미 되어 있어 바꾼 것은 인자 하나다.
+
+```java
+paymentServiceClient.requestPayment(userId, courseId, estimatedTotal);
+```
+
+**함께 넓힌 것이 있다.** `payments.amount` 가 `DECIMAL(10,2)` 라 99,999,999.99 가 한계였다. 이 데이터의 최고 단가가 25,247,100원이므로 넉 대만 주문해도 넘친다. `enrollments.estimated_total` 은 이미 `DECIMAL(19,2)` 였으므로 결제 쪽을 같은 폭으로 맞췄다.
+
+`ddl-auto: update` 는 **기존 컬럼의 폭을 넓히지 않는다.** 없는 컬럼을 추가하는 것과 다르다. 이미 만들어진 DB 는 한 번 직접 실행해야 한다. 값이 사라지지 않는 확장이라 볼륨을 지울 필요는 없다.
+
+```bash
+docker compose exec -T mariadb mariadb -umanager -pSqlDba-1 lecture_db \
+  < scripts/migrations/2026-08-11-payment-amount-precision.sql
+```
+
+**안 돌리면 큰 발주가 조용히 반쯤 깨진다.** MariaDB 가 `Out of range value` 로 거부하는데, 발주 행은 결제보다 먼저 독립 트랜잭션으로 커밋되므로 **결제 없는 `PENDING` 발주만 남는다.** 화면은 결제 처리 중에서 멈추고 원인이 자기 DB 컬럼 폭이라는 것을 알아채기 어렵다.
+
+## 받은 뒤 손으로 해야 하는 것
+
+`ddl-auto: update` 가 처리하지 못하는 변경은 여기에 모은다. **pull 한 뒤 이 절을 확인한다.**
+
+| 날짜 | 무엇 | 실행 |
 | --- | --- | --- |
-| 카탈로그 단가를 조회해 넘긴다 | 필요 | 기획안대로 동작 |
-| 시연용 단가를 99,000원에 맞춘다 | 없음 | 금액이 하나로 고정 |
-| 화면에만 계산값을 표시한다 | 없음 | 결제 내역과 불일치. 발표에서 지적될 수 있다 |
+| 2026-08-11 | `payments.amount` 폭 확장 | `scripts/migrations/2026-08-11-payment-amount-precision.sql` |
 
-**어느 쪽으로 갈지 Sprint1 Planning에서 정하고 이 문서에 기록한다.**
+`ddl-auto: update` 는 **없는 컬럼을 추가할 뿐** 기존 컬럼의 폭·타입을 바꾸지 않고 값을 채우지도 않는다. 컬럼 추가만 있는 변경은 서비스를 다시 빌드하면 끝나므로 여기 적지 않는다.
 
 ### 추천용 조달 조건은 발주와 별개다
 
@@ -205,7 +230,7 @@ springdoc 경로가 커스터마이즈되어 있어 기본값 `/v3/api-docs` 가
 
 | 발견일 | 어긋난 두 칸 | 내용 | 상태 |
 | --- | --- | --- | --- |
-| 2026-08-10 | 기획안 ↔ enrollment-service | 기획안은 주문별 금액(480만원 등)을 전제하지만 코드는 99,000원 고정 | 미결 — Sprint1 Planning에서 결정 |
+| 2026-08-10 | 기획안 ↔ enrollment-service | 기획안은 주문별 금액(480만원 등)을 전제하지만 코드는 99,000원 고정 | **2026-08-11 해소** — 견적을 그대로 넘기도록 고쳤다. `대가가 있는 것` 의 `결제 금액` 참조 |
 | 2026-08-10 | 기획안 ↔ recommend-service | 기획안 7.2의 `추천점수`·`추천 해석` 이 `RecommendResponse` 에 없음 | Sprint2 작업으로 계획 |
 | 2026-08-10 | 기획안 ↔ API | 기획안 7.3의 품질검사 등록에 해당하는 엔드포인트가 없음 | Sprint2 작업으로 계획 |
 | 2026-08-11 | SecurityConfig 주석 ↔ 실제 토큰 | 네 서비스가 전부 `permitAll` 이라 개별 포트로 인증을 우회할 수 있다. 주석 처리된 리소스 서버 설정을 켜면 issuer 불일치로 전면 401 | 미결 — Sprint1 범위 밖. 아래 참조 |

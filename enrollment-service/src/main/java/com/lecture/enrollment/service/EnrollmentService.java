@@ -51,9 +51,13 @@ public class EnrollmentService {
 
         Enrollment enrollment = enrollmentWriteService.createPendingEnrollment(userId, request, estimatedTotal);
 
-        paymentServiceClient.requestPayment(userId, courseId, BigDecimal.valueOf(99000));
+        // 50행에서 계산한 견적을 그대로 넘긴다.
+        // 원본 템플릿이 수강료 99,000원 하나로 고정이라 상수가 박혀 있었고,
+        // 그 탓에 화면의 견적과 결제 내역이 서로 다른 값을 말했다.
+        paymentServiceClient.requestPayment(userId, courseId, estimatedTotal);
 
-        log.info("[EnrollmentService] 수강신청 완료 (결제 대기) - enrollmentId: {}", enrollment.getId());
+        log.info("[EnrollmentService] 수강신청 완료 (결제 대기) - enrollmentId: {}, 결제금액: {}",
+                enrollment.getId(), estimatedTotal);
         return EnrollmentDto.EnrollmentResponse.from(enrollment);
     }
 

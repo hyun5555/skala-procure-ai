@@ -159,7 +159,7 @@ POST /api/users/anything        → 401
 }
 ```
 
-`estimatedTotal` 은 클라이언트가 보내지 않는다. enrollment-service가 course-service에서 조회한 등록 단가에 수량을 곱해 계산·저장한다. 자동 결제 금액은 별도 미결 사항이므로 현재 99,000원 고정을 유지한다.
+`estimatedTotal` 은 클라이언트가 보내지 않는다. enrollment-service가 course-service에서 조회한 등록 단가에 수량을 곱해 계산·저장한다. **자동 결제도 이 값으로 청구된다.** 2026-08-11 이전에는 99,000원 고정이었다.
 
 ```json
 // GET /api/enrollments/my — course 객체가 붙어서 온다. 별도 조회가 필요 없다.
@@ -231,7 +231,7 @@ POST /api/users/anything        → 401
     "paymentId": 7,
     "userId": 3,
     "courseId": 1,
-    "amount": 99000,
+    "amount": 38400.00,
     "status": "COMPLETED",
     "transactionId": "TXN-…",
     "createdAt": "2026-08-10T14:05:41"
@@ -241,7 +241,7 @@ POST /api/users/anything        → 401
 
 **프론트엔드는 결제를 직접 호출하지 않는다.** 결제를 생성하는 공개 엔드포인트가 없고, `vue-frontend/src/api/` 에 `payment.js` 가 아예 없다. 의도된 구조다.
 
-`amount` 가 99,000원 고정인 이유와 대응 방법은 [`../constraints.md`](../constraints.md)의 `결제 금액이 고정되어 있다` 를 본다.
+`amount` 는 발주의 `estimatedTotal`(단가 × 수량)과 같은 값이다. 99,000원 고정이던 시절의 사정은 [`../constraints.md`](../constraints.md)의 `결제 금액` 을 본다.
 
 ## 5. 공급업체 추천 — recommend-service
 

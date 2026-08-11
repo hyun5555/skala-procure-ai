@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS payments (
     id              BIGINT          NOT NULL AUTO_INCREMENT,
     user_id         BIGINT          NOT NULL,
     course_id       BIGINT          NOT NULL,
-    amount          DECIMAL(10,2)   NOT NULL,
+    amount          DECIMAL(19,2)   NOT NULL COMMENT '발주 견적(단가×수량). enrollments.estimated_total 과 같은 폭',
     status          VARCHAR(20)     NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING | COMPLETED | FAILED | CANCELLED',
     transaction_id  VARCHAR(255)    UNIQUE,
     created_at      DATETIME(6),
