@@ -1,8 +1,8 @@
 <template>
   <footer class="app-footer">
     <div class="footer-inner">
-      <b>PROCURIX</b>
-      <span>Quality data, better sourcing.</span>
+      <b>MATERIQ</b>
+      <span>Material intelligence, better sourcing.</span>
       <small>© 2026 SKALA Procurement Platform</small>
     </div>
   </footer>
@@ -29,8 +29,8 @@
 <style scoped>
 .app-footer {
   padding: 28px 0;
-  background: #122a27;
-  color: #fff;
+  background: #171b20;
+  color: #f8fafb;
   margin-top: auto;   /* page-wrapper 가 flex column 일 때 바닥에 붙는다 */
 }
 .footer-inner {
@@ -42,8 +42,9 @@
   gap: 18px;
 }
 .app-footer b { letter-spacing: .12em; }
-.app-footer span { font-size: 11px; color: #93aaa6; }
-.app-footer small { margin-left: auto; color: #627b76; font-size: 9px; }
+.app-footer b { color:#f8fafb; }
+.app-footer span { font-size: 11px; color: #b9c3c9; }
+.app-footer small { margin-left: auto; color: #7f8990; font-size: 9px; }
 
 @media (max-width: 600px) {
   .footer-inner {

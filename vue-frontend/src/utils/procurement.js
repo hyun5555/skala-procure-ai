@@ -4,9 +4,20 @@ export const productOptions = [
   '전체', '파형강관', '파형강관이음관', '피복강관', '피복강관이음', '스틸파일', '주철관', '주철제관이음', '기타 관류'
 ]
 
-export const companyTypeOptions = ['전체', '중소기업', '중견기업']
-
 export const deliveryDayOptions = [30, 50, 60, 90, 120]
+
+export function getSpecificationOptions(product) {
+  if (['파형강관', '파형강관이음관', '주철관', '주철제관이음'].includes(product)) {
+    return ['Φ80mm', 'Φ100mm', 'Φ150mm', 'Φ200mm', 'Φ250mm', 'Φ300mm', 'Φ400mm', 'Φ500mm', 'Φ600mm', 'Φ800mm', 'Φ1000mm']
+  }
+  if (['피복강관', '피복강관이음'].includes(product)) {
+    return ['15A', '20A', '25A', '40A', '50A', '80A', '100A', '150A', '200A', '300A']
+  }
+  if (product === '스틸파일') {
+    return ['Φ318.5mm', 'Φ406.4mm', 'Φ508mm', 'Φ609.6mm', 'Φ711.2mm', 'Φ812.8mm']
+  }
+  return ['소형', '중형', '대형', '주문 규격']
+}
 
 const specAliases = {
   location: ['공급업체소재지', '소재지'],
@@ -115,9 +126,11 @@ function matchesSupplyRegion(supplierRegion, selectedRegions = []) {
 export function evaluateCourse(course, criteria) {
   const specs = parseCapability(course.description)
   const product = specs.product || course.category
-  const searchable = `${course.title || ''} ${specs.detailProduct} ${specs.itemName} ${specs.specification}`
+  const searchable = `${course.title || ''} ${specs.detailProduct} ${specs.itemName}`
   const productMatch = !criteria.product || criteria.product === '전체' || product === criteria.product || course.category === criteria.product
   const detailMatch = !criteria.detailProduct || includesNormalized(specs.detailProduct, criteria.detailProduct)
+  const specificationSearchable = `${specs.specification} ${specs.itemName} ${course.title || ''}`
+  const specificationMatch = !criteria.specification || criteria.specification === '전체' || includesNormalized(specificationSearchable, criteria.specification)
   const keywordMatch = !criteria.keyword || includesNormalized(searchable, criteria.keyword)
   const companyTypeMatch = !criteria.companyType || criteria.companyType === '전체' || specs.companyType === criteria.companyType
   const regionMatch = criteria.supplyRegions
@@ -132,12 +145,12 @@ export function evaluateCourse(course, criteria) {
   const certificationMatch = !criteria.certification || includesNormalized(specs.certification, criteria.certification)
   const excellentMatch = !criteria.excellentOnly || specs.excellent === 'Y'
   const masMatch = !criteria.masOnly || specs.mas === 'Y'
-  const eligible = productMatch && detailMatch && keywordMatch && companyTypeMatch && regionMatch && budgetMatch && deliveryMatch && certificationMatch && excellentMatch && masMatch
+  const eligible = productMatch && detailMatch && specificationMatch && keywordMatch && companyTypeMatch && regionMatch && budgetMatch && deliveryMatch && certificationMatch && excellentMatch && masMatch
 
   const unitPrice = Number(course.price || 0)
   const budgetRatio = budget && quantity ? totalPrice / budget : 0.5
   const breakdown = {
-    itemFit: (productMatch ? 14 : 0) + (detailMatch ? 8 : 0) + (keywordMatch ? 8 : 0),
+    itemFit: (productMatch ? 12 : 0) + (detailMatch ? 6 : 0) + (specificationMatch ? 6 : 0) + (keywordMatch ? 6 : 0),
     price: Math.round(clamp(25 * (1.15 - budgetRatio), 0, 25)),
     delivery: specs.deliveryDaysValue === null ? 0 : Math.round(clamp(20 * (30 / specs.deliveryDaysValue), 0, 20)),
     region: regionMatch ? 10 : 0,

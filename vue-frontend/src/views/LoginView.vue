@@ -4,8 +4,8 @@
     <aside class="auth-banner">
       <div class="banner-top">
         <div class="brand">
-          <span class="brand-logo">P</span>
-          <span class="brand-name">PROCURIX</span>
+          <span class="brand-logo" aria-hidden="true"><i></i><i></i></span>
+          <span class="brand-name">MATERIQ</span>
         </div>
       </div>
 
@@ -40,7 +40,7 @@
           <h1>{{ showRegister ? '회원가입' : '다시 오신 것을 환영합니다' }}</h1>
           <p>{{ showRegister
             ? '구매기업 또는 공급기업으로 가입합니다.'
-            : 'PROCURIX 기업 계정으로 로그인하세요.' }}</p>
+            : 'MATERIQ 기업 계정으로 로그인하세요.' }}</p>
         </header>
 
         <!--
@@ -161,19 +161,21 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth.js'
 import { authApi } from '@/api/auth.js'
 
 const auth = useAuthStore()
+const route = useRoute()
 const router = useRouter()
 
-const showRegister = ref(false)
+const requestedRole = route.query.role === 'INSTRUCTOR' ? 'INSTRUCTOR' : 'STUDENT'
+const showRegister = ref(route.query.register === '1')
 const loading = ref(false)
 const error = ref('')
 const success = ref('')
 
-const registerForm = ref({ name: '', email: '', password: '', role: 'STUDENT' })
+const registerForm = ref({ name: '', email: '', password: '', role: requestedRole })
 
 // null = 아직 확인 안 함, true = 중복, false = 사용 가능
 const emailTaken = ref(null)
@@ -250,7 +252,7 @@ async function handleRegister() {
 .auth-banner {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(160deg, #102f2a 0%, #126B5B 55%, #1a806e 100%);
+  background: linear-gradient(155deg, #f4f9fc 0%, #e8f5fc 56%, #d9ebf4 100%);
   padding: 56px 56px 48px;
   display: flex;
   flex-direction: column;
@@ -263,24 +265,24 @@ async function handleRegister() {
 
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-logo {
-  width: 42px; height: 42px; border-radius: 11px;
-  display: grid; place-items: center;
-  background: #fff; color: #126B5B;
-  font-weight: 900; font-size: 18px;
+  position:relative; width:44px; height:38px;
 }
-.brand-name { font-size: 19px; font-weight: 700; color: #fff; letter-spacing: .02em; }
+.brand-logo i { position:absolute;top:4px;width:25px;height:30px;border:6px solid #70777d;border-radius:10px; }
+.brand-logo i:first-child { left:1px; }
+.brand-logo i:last-child { right:1px;border-color:#a1a7ac; }
+.brand-name { font-size: 20px; font-weight: 800; color: var(--color-text-primary); letter-spacing: .045em; }
 
 .banner-body h2 {
   font-size: clamp(30px, 3.2vw, 42px);
   font-weight: 700;
-  color: #fff;
+  color: var(--color-text-primary);
   line-height: 1.3;
   letter-spacing: -0.5px;
   margin-bottom: 16px;
 }
 .banner-body p {
   font-size: 15px;
-  color: rgba(255,255,255,0.78);
+  color: var(--color-text-secondary);
   margin-bottom: 32px;
   max-width: 34ch;
   line-height: 1.7;
@@ -288,40 +290,40 @@ async function handleRegister() {
 .feature-list { list-style: none; display: flex; flex-direction: column; gap: 14px; }
 .feature-list li {
   display: flex; align-items: center; gap: 11px;
-  font-size: 14px; color: rgba(255,255,255,0.88);
+  font-size: 14px; color: var(--color-text-secondary);
 }
 .dot {
   width: 7px; height: 7px; border-radius: 50%;
-  background: rgba(255,255,255,0.65); flex-shrink: 0;
+  background: var(--color-accent); flex-shrink: 0;
 }
 
 .banner-stats {
   display: flex;
   gap: 40px;
   padding-top: 28px;
-  border-top: 1px solid rgba(255,255,255,0.16);
+  border-top: 1px solid rgba(89,97,104,0.16);
 }
 .banner-stats div { display: flex; flex-direction: column; gap: 3px; }
-.banner-stats strong { font-size: 22px; font-weight: 700; color: #fff; }
-.banner-stats span { font-size: 12px; color: rgba(255,255,255,0.6); }
+.banner-stats strong { font-size: 22px; font-weight: 700; color: var(--color-text-primary); }
+.banner-stats span { font-size: 12px; color: var(--color-text-muted); }
 
 /* 장식 도형 */
 .deco { position: absolute; border-radius: 50%; pointer-events: none; }
 .deco-a {
   width: 460px; height: 460px;
   right: -170px; top: -120px;
-  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.16), rgba(255,255,255,0) 68%);
+  background: radial-gradient(circle at 35% 35%, rgba(98,180,226,0.2), rgba(98,180,226,0) 68%);
 }
 .deco-b {
   width: 300px; height: 300px;
   right: -90px; bottom: 60px;
-  border: 1px solid rgba(255,255,255,0.14);
+  border: 1px solid rgba(53,143,195,0.16);
   background: transparent;
 }
 .deco-c {
   width: 170px; height: 170px;
   right: 90px; bottom: 175px;
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(89,97,104,0.12);
   background: transparent;
 }
 
@@ -512,4 +514,9 @@ async function handleRegister() {
   .deco-b, .deco-c { display: none; }
   .auth-main { padding: 36px 24px 56px; }
 }
+.back-link:hover { color:var(--color-accent-dark); }
+.notice { border-left-color:var(--color-accent); }
+.field input:focus,.field select:focus { border-color:var(--color-accent); }
+.demo-btn:hover { border-color:var(--color-accent); }
+.demo-btn.supplier b { color:var(--color-text-secondary); }
 </style>

@@ -9,8 +9,5 @@ export const enrollmentApi = {
   },
   cancel(enrollmentId) {
     return api.delete(`/api/enrollments/${enrollmentId}`)
-  },
-  getRecommendations(userId) {
-    return api.get(`/api/recommend/${userId}`)
   }
 }

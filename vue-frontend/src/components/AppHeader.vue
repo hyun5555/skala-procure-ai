@@ -2,8 +2,11 @@
   <header class="app-header">
     <div class="header-inner">
       <router-link to="/" class="logo">
-        <span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span class="logo-copy"><strong>PROCURIX</strong><small>QUALITY SOURCING</small></span>
+        <span class="logo-mark" aria-hidden="true">
+          <i class="logo-loop logo-loop-left"></i>
+          <i class="logo-loop logo-loop-right"></i>
+        </span>
+        <span class="logo-copy"><strong>MATERIQ</strong><small>MATERIAL INTELLIGENCE</small></span>
       </router-link>
 
       <!-- 네비게이션 -->
@@ -15,7 +18,6 @@
         <template v-else>
           <router-link to="/courses" class="nav-link" :class="{ active: $route.path.startsWith('/courses') }">업체 매칭</router-link>
           <router-link to="/enrollments" class="nav-link" :class="{ active: $route.path === '/enrollments' }">발주 관리</router-link>
-          <router-link to="/mypage" class="nav-link" :class="{ active: $route.path === '/mypage' }">추천 리포트</router-link>
         </template>
       </nav>
 
@@ -23,7 +25,7 @@
       <div class="header-actions">
         <template v-if="auth.isAuthenticated">
           <span v-if="auth.isDemo" class="demo-badge">DEMO</span>
-          <router-link to="/mypage" class="user-avatar" :title="auth.user?.name">
+          <router-link :to="auth.isInstructor ? '/mypage' : '/enrollments'" class="user-avatar" :title="auth.user?.name">
             {{ auth.user?.name?.charAt(0) || '?' }}
           </router-link>
           <button class="btn btn-ghost btn-sm" @click="handleLogout">로그아웃</button>
@@ -74,14 +76,16 @@ function handleLogout() {
   gap: 10px;
   flex-shrink: 0;
 }
-.logo-mark { width: 34px; height: 34px; border-radius: 9px; background: var(--color-primary); display:flex; align-items:flex-end; justify-content:center; gap:3px; padding:8px; }
-.logo-mark i { display:block; width:4px; background:#fff; border-radius:2px; }
-.logo-mark i:nth-child(1) { height:9px; opacity:.65; }
-.logo-mark i:nth-child(2) { height:15px; }
-.logo-mark i:nth-child(3) { height:12px; opacity:.82; }
+.logo-mark { position:relative; width:38px; height:34px; flex-shrink:0; }
+.logo-loop { position:absolute; top:4px; width:22px; height:26px; border:5px solid #70777d; border-radius:9px; }
+.logo-loop-left { left:1px; }
+.logo-loop-right { right:1px; border-color:#a1a7ac; }
+.logo-loop-left:after,.logo-loop-right:after { content:''; position:absolute; top:7px; width:8px; height:4px; background:#fff; }
+.logo-loop-left:after { right:-8px; }
+.logo-loop-right:after { left:-8px; }
 .logo-copy { display:flex; flex-direction:column; line-height:1; gap:4px; }
-.logo-copy strong { font-size:16px; letter-spacing:.08em; color:var(--color-text-primary); }
-.logo-copy small { font-size:8px; letter-spacing:.17em; color:var(--color-text-muted); }
+.logo-copy strong { font-size:17px; letter-spacing:.055em; color:var(--color-text-primary); }
+.logo-copy small { font-size:7px; letter-spacing:.13em; color:var(--color-text-muted); }
 .nav-links {
   display: flex;
   gap: 4px;
@@ -97,7 +101,7 @@ function handleLogout() {
 }
 .nav-link:hover,
 .nav-link.active {
-  color: var(--color-primary);
+  color: var(--color-accent-dark);
   background: var(--color-primary-light);
 }
 @media (max-width: 720px) {
@@ -114,13 +118,13 @@ function handleLogout() {
   padding: 7px 16px;
   font-size: 13px;
 }
-.demo-badge { padding:4px 7px; border-radius:5px; background:#fff3e6; color:#ad5c19; font-size:8px; font-weight:800; letter-spacing:.1em; }
+.demo-badge { padding:4px 7px; border-radius:5px; background:var(--color-peach-soft); color:#8a634f; font-size:8px; font-weight:800; letter-spacing:.1em; }
 .user-avatar {
   width: 34px;
   height: 34px;
   border-radius: 50%;
   background: var(--color-primary-light);
-  color: var(--color-primary);
+  color: var(--color-accent-dark);
   font-size: 13px;
   font-weight: 600;
   display: flex;
@@ -130,7 +134,7 @@ function handleLogout() {
   transition: var(--transition);
 }
 .user-avatar:hover {
-  background: var(--color-primary);
+  background: var(--color-accent-dark);
   color: #fff;
 }
 </style>

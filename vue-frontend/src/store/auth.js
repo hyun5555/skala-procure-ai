@@ -60,8 +60,8 @@ export const useAuthStore = defineStore('auth', () => {
     isDemo.value = true
     sessionStorage.setItem('demo_mode', 'true')
     setUser(role === 'INSTRUCTOR'
-      ? { id: 9002, email: 'supplier@demo.procurix.kr', name: '남강철강 주식회사', role: 'INSTRUCTOR' }
-      : { id: 9001, email: 'buyer@demo.procurix.kr', name: '대한건설 구매팀', role: 'STUDENT' })
+      ? { id: 9002, email: 'supplier@demo.materiq.kr', name: '남강철강 주식회사', role: 'INSTRUCTOR' }
+      : { id: 9001, email: 'buyer@demo.materiq.kr', name: '대한건설 구매팀', role: 'STUDENT' })
   }
 
   // OAuth2 Authorization Code Flow

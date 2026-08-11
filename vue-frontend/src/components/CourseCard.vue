@@ -77,12 +77,12 @@ const badgeClass = computed(() => config.value.badge)
   justify-content: space-between;
   padding: 20px;
 }
-.thumb-teal   { background: #E1F5EE; }
-.thumb-blue   { background: #E6F1FB; }
-.thumb-amber  { background: #FAEEDA; }
-.thumb-purple { background: #EEEDFE; }
-.thumb-pink   { background: #FBEAF0; }
-.thumb-gray   { background: #F1EFE8; }
+.thumb-teal   { background: #E5F1E9; }
+.thumb-blue   { background: #EAF6FD; }
+.thumb-amber  { background: #F8E2DA; }
+.thumb-purple { background: #DDEFFA; }
+.thumb-pink   { background: #F2ECE9; }
+.thumb-gray   { background: #EDF1F3; }
 .material-code { font-size: 24px; font-weight: 800; letter-spacing: -.04em; color: rgba(23,37,35,.8); z-index:1; }
 .match-score { z-index:1; align-self:flex-start; background:#fff; color:var(--color-primary); border-radius:999px; padding:6px 10px; font-size:18px; font-weight:800; box-shadow:var(--shadow-sm); }
 .match-score small { font-size:10px; margin-left:2px; }
@@ -135,4 +135,6 @@ const badgeClass = computed(() => config.value.badge)
   color: var(--color-text-muted);
 }
 .detail-link { font-size:11px; color:var(--color-primary); font-weight:600; }
+.match-score,.detail-link { color:var(--color-accent-dark); }
+.recommend-reason { color:#315f79; }
 </style>

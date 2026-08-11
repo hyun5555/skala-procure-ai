@@ -18,12 +18,12 @@
         </div>
         <form class="condition-form" @submit.prevent="runMatching">
           <label><span>품명</span><select v-model="criteria.product"><option v-for="item in productOptions" :key="item">{{ item }}</option></select></label>
-          <label><span>규격·품목 키워드</span><input v-model.trim="criteria.keyword" placeholder="예: Φ300mm, 폴리에틸렌" /></label>
+          <label><span>규격</span><select v-model="criteria.specification"><option value="전체">전체 규격</option><option v-for="spec in specificationOptions" :key="spec" :value="spec">{{ spec }}</option></select></label>
+          <label><span>품목 키워드</span><input v-model.trim="criteria.keyword" placeholder="예: 연결관, 폴리에틸렌" /></label>
           <div class="condition-field"><span>공급지역</span><RegionMultiSelect v-model="criteria.supplyRegions" placeholder="희망 공급지역 선택" aria-label="희망 공급지역 선택" /></div>
           <label><span>최대 납품일수</span><select v-model.number="criteria.maxDeliveryDays"><option :value="null">전체</option><option v-for="day in deliveryDayOptions" :key="day" :value="day">{{ day }}일 이내</option></select></label>
           <label><span>필요 수량</span><input v-model.number="criteria.quantity" type="number" min="1" placeholder="100" /></label>
           <label><span>총 예산</span><div class="input-unit"><input v-model.number="criteria.budget" type="number" min="0" placeholder="50,000,000" /><em>원</em></div></label>
-          <label><span>기업구분</span><select v-model="criteria.companyType"><option v-for="item in companyTypeOptions" :key="item">{{ item }}</option></select></label>
           <label><span>인증 키워드</span><input v-model.trim="criteria.certification" placeholder="예: KS, 여성기업" /></label>
           <div class="toggle-group"><label><input v-model="criteria.masOnly" type="checkbox" /> MAS 등록</label><label><input v-model="criteria.excellentOnly" type="checkbox" /> 우수제품</label></div>
           <button class="match-button" type="submit"><span>조건 분석 및 매칭</span><small>필수조건 필터 + 다기준 점수화</small></button>
@@ -57,21 +57,22 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import CourseCard from '@/components/CourseCard.vue'
 import RegionMultiSelect from '@/components/RegionMultiSelect.vue'
 import { useCourseStore } from '@/store/course.js'
 import { useAuthStore } from '@/store/auth.js'
-import { companyTypeOptions, deliveryDayOptions, evaluateCourse, productOptions } from '@/utils/procurement.js'
+import { deliveryDayOptions, evaluateCourse, productOptions } from '@/utils/procurement.js'
 
 const courseStore = useCourseStore()
 const auth = useAuthStore()
 const hasMatched = ref(false)
-const criteria = reactive({ product: '전체', detailProduct: '', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, companyType: '전체', certification: '', excellentOnly: false, masOnly: false })
+const criteria = reactive({ product: '전체', detailProduct: '', specification: '전체', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, certification: '', excellentOnly: false, masOnly: false })
 const loading = computed(() => courseStore.loading)
 const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
+const specificationOptions = ['소형', '중형', '대형', '주문 규격']
 
 const displayCourses = computed(() => {
   const courses = Array.isArray(courseStore.courses) ? courseStore.courses : []
@@ -81,9 +82,10 @@ const displayCourses = computed(() => {
 
 function runMatching() { hasMatched.value = true }
 function resetMatching() {
-  Object.assign(criteria, { product: '전체', detailProduct: '', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, companyType: '전체', certification: '', excellentOnly: false, masOnly: false })
+  Object.assign(criteria, { product: '전체', detailProduct: '', specification: '전체', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, certification: '', excellentOnly: false, masOnly: false })
   hasMatched.value = false
 }
+watch(() => criteria.product, () => { criteria.specification = '전체' })
 onMounted(() => courseStore.fetchCourses())
 </script>
 
@@ -94,7 +96,7 @@ onMounted(() => courseStore.fetchCourses())
 .eyebrow { display:block; margin-bottom:7px; color:var(--color-primary); font-size:10px; font-weight:800; letter-spacing:.16em; }
 .page-heading h1 { font-size:30px; line-height:1.3; letter-spacing:-.04em; }
 .page-heading p { margin-top:8px; color:var(--color-text-secondary); font-size:14px; }
-.condition-panel { padding:26px; border:1px solid #cfe0db; border-radius:18px; background:#fff; box-shadow:0 14px 40px rgba(12,79,68,.08); margin-bottom:42px; }
+.condition-panel { padding:26px; border:1px solid #d9e6ed; border-radius:18px; background:#fff; box-shadow:0 14px 40px rgba(30,48,60,.08); margin-bottom:42px; }
 .panel-title { display:flex; align-items:center; gap:13px; margin-bottom:22px; }
 .panel-title h2, .result-header h2 { font-size:19px; }
 .panel-title p { font-size:12px; color:var(--color-text-muted); margin-top:2px; }
@@ -118,11 +120,13 @@ onMounted(() => courseStore.fetchCourses())
 .score-legend { font-size:10px; color:var(--color-text-muted); padding:9px 12px; border:1px solid var(--color-border); border-radius:8px; background:#fff; }
 .score-legend b { color:var(--color-primary); margin-right:7px; }
 .course-grid,.loading-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-.skeleton-card { height:285px; border-radius:14px; background:linear-gradient(90deg,#edf1f0 25%,#f7f9f8 50%,#edf1f0 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; }
+.skeleton-card { height:285px; border-radius:14px; background:linear-gradient(90deg,#edf1f3 25%,#f8fafb 50%,#edf1f3 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; }
 @keyframes shimmer { to { background-position:-200% 0; } }
 .empty-state { padding:70px 20px; text-align:center; background:#fff; border:1px dashed var(--color-border); border-radius:14px; }
 .empty-state span { font-weight:700; }
 .empty-state p { margin:7px 0 18px; color:var(--color-text-muted); font-size:13px; }
 @media(max-width:1000px){.condition-form{grid-template-columns:repeat(3,1fr)}.course-grid,.loading-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:680px){.main-content{padding:28px 16px}.page-heading{align-items:flex-start;flex-direction:column}.condition-form{grid-template-columns:1fr}.course-grid,.loading-grid{grid-template-columns:1fr}.result-header{align-items:flex-start;flex-direction:column}.score-legend{line-height:1.5}}
+.eyebrow,.score-legend b { color:var(--color-accent-dark); }
+.condition-form input:focus,.condition-form select:focus { border-color:var(--color-accent); box-shadow:0 0 0 3px var(--color-primary-light); }
 </style>

@@ -15,39 +15,8 @@
           </div>
         </div>
 
-        <!-- 구매기업 화면 -->
-        <section v-if="!isInstructor" class="recommend-section">
-          <h3 class="section-title">AI 추천 공급기업</h3>
-
-          <p v-if="recommendMessage" class="recommend-message">
-            {{ recommendMessage }}
-          </p>
-
-          <div v-if="recommendLoading" class="loading-row">
-            <div v-for="i in 3" :key="i" class="skeleton-card">
-              <div class="skeleton-thumb"></div>
-              <div class="skeleton-body">
-                <div class="skeleton-line short"></div>
-                <div class="skeleton-line"></div>
-              </div>
-            </div>
-          </div>
-
-          <div v-else-if="recommendations.length" class="recommend-grid fade-in">
-            <CourseCard v-for="c in recommendations" :key="c.id" :course="c" />
-          </div>
-
-          <p v-else-if="recommendError" class="empty-text">
-            {{ recommendError }}
-          </p>
-
-          <p v-else class="empty-text">
-            아직 추천할 공급기업이 없습니다. 업체 매칭에서 조달 조건을 입력해 보세요.
-          </p>
-        </section>
-
         <!-- 공급기업 화면 -->
-        <section v-else class="instructor-section">
+        <section class="instructor-section">
           <section
             v-if="!instructorLoading && myCourses.length"
             class="trade-analytics-card fade-in"
@@ -191,9 +160,7 @@
 import { ref, computed, onMounted } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
-import CourseCard from '@/components/CourseCard.vue'
 import { useAuthStore } from '@/store/auth.js'
-import { enrollmentApi } from '@/api/enrollment.js'
 import { courseApi } from '@/api/course.js'
 import { useCourseStore } from '@/store/course.js'
 import { getDemoCourses } from '@/data/demo.js'
@@ -202,12 +169,6 @@ const auth = useAuthStore()
 const courseStore = useCourseStore()
 
 const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
-
-/* 학생용 */
-const recommendations = ref([])
-const recommendLoading = ref(true)
-const recommendError = ref('')
-const recommendMessage = ref('')
 
 /* 강사용 */
 const myCourses = ref([])
@@ -221,7 +182,7 @@ const totalEnrollmentCount = computed(() =>
   }, 0)
 )
 
-const chartColors = ['#126B5B', '#E9852D', '#4F83C2', '#8A6BB8', '#D15D78', '#71944A', '#A96A43', '#557B78']
+const chartColors = ['#62B4E2', '#A8D3EC', '#7C8992', '#C5CDD2', '#86B9D5', '#9EB9AA', '#D6A997', '#657B88']
 
 const tradeDistribution = computed(() => {
   const grouped = new Map()
@@ -277,52 +238,6 @@ function getCourseInstructorId(course) {
   )
 }
 
-async function loadStudentRecommendations() {
-  try {
-    if (auth.isDemo) {
-      recommendations.value = getDemoCourses().slice(0, 3).map(courseStore.normalizeCourse)
-      recommendMessage.value = '조달 등록정보와 인기 거래 데이터를 기준으로 추천한 데모 결과입니다.'
-      return
-    }
-    if (!auth.user) {
-      console.warn('[MyPage] auth.user is missing')
-      recommendError.value = '추천 공급기업을 준비 중입니다.'
-      return
-    }
-
-    if (!auth.user.id) {
-      console.warn('[MyPage] auth.user.id is missing:', auth.user)
-      recommendError.value = '추천 공급기업을 준비 중입니다.'
-      return
-    }
-
-    const res = await enrollmentApi.getRecommendations(auth.user.id)
-    console.log('[MyPage] recommendation response:', res.data)
-
-    const payload = res.data
-
-    if (Array.isArray(payload?.recommendedCourses)) {
-      recommendations.value = payload.recommendedCourses.map(courseStore.normalizeCourse)
-      recommendMessage.value = payload.message ?? ''
-    } else if (Array.isArray(payload?.data)) {
-      recommendations.value = payload.data.map(courseStore.normalizeCourse)
-      recommendMessage.value = payload.message ?? ''
-    } else if (Array.isArray(payload)) {
-      recommendations.value = payload.map(courseStore.normalizeCourse)
-      recommendMessage.value = ''
-    } else {
-      console.warn('[MyPage] unexpected recommendation response shape:', payload)
-      recommendations.value = []
-      recommendMessage.value = ''
-    }
-  } catch (error) {
-    console.error('[MyPage] failed to load recommendations:', error)
-    recommendError.value = '현재 추천 공급기업을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
-  } finally {
-    recommendLoading.value = false
-  }
-}
-
 async function loadInstructorCourses() {
   try {
     if (auth.isDemo) {
@@ -370,15 +285,7 @@ async function loadInstructorCourses() {
   }
 }
 
-onMounted(async () => {
-  if (isInstructor.value) {
-    recommendLoading.value = false
-    await loadInstructorCourses()
-  } else {
-    instructorLoading.value = false
-    await loadStudentRecommendations()
-  }
-})
+onMounted(loadInstructorCourses)
 </script>
 
 <style scoped>
@@ -417,7 +324,7 @@ onMounted(async () => {
   height: 64px;
   border-radius: 50%;
   background: var(--color-primary-light);
-  color: var(--color-primary);
+  color: var(--color-accent-dark);
   font-size: 24px;
   font-weight: 700;
   display: flex;
@@ -453,42 +360,13 @@ onMounted(async () => {
 }
 
 .badge-blue {
-  background: #e8f1ff;
-  color: #2563eb;
+  background: #eaf6fd;
+  color: #2e7faf;
 }
 
 .badge-amber {
-  background: #f7edd8;
-  color: #9a6700;
-}
-
-.section-head {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.section-subtitle {
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-.recommend-message {
-  margin-bottom: 14px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.recommend-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  background: #f8e2da;
+  color: #9a684c;
 }
 
 .loading-row {
@@ -584,7 +462,7 @@ onMounted(async () => {
 
 .analytics-kicker {
   display: block;
-  color: var(--color-primary);
+  color: var(--color-accent-dark);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: .14em;
@@ -645,7 +523,7 @@ onMounted(async () => {
   height: 174px;
   margin: 0 auto;
   border-radius: 50%;
-  box-shadow: 0 8px 24px rgba(18, 107, 91, .12);
+  box-shadow: 0 8px 24px rgba(36, 64, 80, .12);
 }
 
 .donut-chart::after {
@@ -805,7 +683,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 992px) {
-  .recommend-grid,
   .loading-row,
   .course-meta-grid {
     grid-template-columns: 1fr;

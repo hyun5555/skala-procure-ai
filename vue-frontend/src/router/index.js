@@ -46,7 +46,7 @@ const routes = [
     path: '/mypage',
     name: 'MyPage',
     component: () => import('@/views/MyPageView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, supplierOnly: true }
   }
 ]
 
@@ -76,6 +76,10 @@ router.beforeEach((to) => {
 
   if (to.meta.buyerOnly && auth.user?.role === 'INSTRUCTOR') {
     return { name: 'MyPage' }
+  }
+
+  if (to.meta.supplierOnly && auth.user?.role !== 'INSTRUCTOR') {
+    return { name: 'Enrollment' }
   }
 })
 

@@ -3,7 +3,25 @@
     <div class="view-content" :inert="selectedEnrollment || undefined" :aria-hidden="selectedEnrollment ? 'true' : undefined">
       <AppHeader />
       <main class="main-content">
-        <div class="page-head"><span>ORDER MANAGEMENT</span><h1 class="page-title">발주·납품 관리</h1><p>발주 접수부터 결제, 생산·납품, 품질 데이터 반영까지 확인합니다.</p></div>
+        <section class="account-section fade-in-up" aria-labelledby="account-heading">
+          <div class="section-heading">
+            <span>MY INFO</span>
+            <div>
+              <h1 id="account-heading">나의 정보</h1>
+              <p>현재 로그인한 구매기업 계정입니다.</p>
+            </div>
+          </div>
+          <div class="profile-card">
+            <div class="profile-avatar">{{ auth.user?.name?.charAt(0) || '?' }}</div>
+            <div class="profile-info">
+              <strong>{{ auth.user?.name || '구매기업' }}</strong>
+              <span>{{ auth.user?.email || '-' }}</span>
+            </div>
+            <span class="buyer-badge">구매기업</span>
+          </div>
+        </section>
+
+        <div class="page-head"><span>ORDER MANAGEMENT</span><h2 class="page-title">나의 발주 내역</h2><p>발주 접수부터 결제, 생산·납품, 품질 데이터 반영까지 확인합니다.</p></div>
 
         <div v-if="loading" class="loading-center">
           <div class="spinner"></div>
@@ -198,6 +216,11 @@ onBeforeUnmount(() => {
   background: var(--color-bg-secondary);
 }
 
+.view-content {
+  display: flex;
+  flex-direction: column;
+}
+
 .request-summary {
   display: flex;
   flex-wrap: wrap;
@@ -214,11 +237,25 @@ onBeforeUnmount(() => {
 }
 
 .main-content {
+  flex: 1;
+  width: 100%;
   max-width: 1100px;
   min-width: 0;
   margin: 0 auto;
   padding: 42px 24px 80px;
 }
+
+.account-section { margin-bottom: 34px; }
+.section-heading { display:flex;align-items:center;gap:13px;margin-bottom:14px; }
+.section-heading>span { display:grid;place-items:center;width:42px;height:42px;border-radius:11px;background:var(--color-primary-light);color:var(--color-accent-dark);font-size:8px;font-weight:800;letter-spacing:.08em;text-align:center;line-height:1.25; }
+.section-heading h1 { font-size:20px;line-height:1.25;letter-spacing:-.025em; }
+.section-heading p { margin-top:2px;font-size:11px;color:var(--color-text-muted); }
+.profile-card { display:flex;align-items:center;gap:15px;padding:20px 22px;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:#fff;box-shadow:var(--shadow-sm); }
+.profile-avatar { display:grid;place-items:center;width:48px;height:48px;flex-shrink:0;border-radius:50%;background:var(--color-primary-light);color:var(--color-accent-dark);font-size:17px;font-weight:800; }
+.profile-info { display:flex;flex:1;min-width:0;flex-direction:column; }
+.profile-info strong { font-size:16px; }
+.profile-info span { font-size:11px;color:var(--color-text-muted);overflow-wrap:anywhere; }
+.buyer-badge { padding:5px 11px;border-radius:999px;background:var(--color-primary-light);color:var(--color-accent-dark);font-size:10px;font-weight:700; }
 
 .page-title {
   font-size: 22px;
@@ -402,5 +439,11 @@ onBeforeUnmount(() => {
   .detail-wide { grid-column:auto; }
   .detail-head,.detail-actions { padding-left:18px;padding-right:18px; }
   .detail-product,.missing-detail,.detail-meta { margin-left:18px;margin-right:18px; }
+  .profile-card { align-items:flex-start;flex-wrap:wrap;padding:18px; }
+  .profile-info { min-width:calc(100% - 64px); }
+  .buyer-badge { margin-left:64px; }
 }
+.page-head>span,.detail-head>div>span { color:var(--color-accent-dark); }
+.spinner { border-top-color:var(--color-accent); }
+.detail-backdrop { background:rgba(20,26,31,.56); }
 </style>

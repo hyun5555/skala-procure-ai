@@ -1,28 +1,33 @@
 :root {
-  --color-primary: #126B5B;
-  --color-primary-dark: #0B4F44;
-  --color-primary-light: #E5F4F0;
-  --color-secondary: #E9852D;
-  --color-text-primary: #172523;
-  --color-text-secondary: #5D6C69;
-  --color-text-muted: #9ca3af;
+  --color-primary: #171B20;
+  --color-primary-dark: #090C0F;
+  --color-primary-light: #EAF6FD;
+  --color-secondary: #7C8992;
+  --color-accent: #62B4E2;
+  --color-accent-dark: #358FC3;
+  --color-accent-soft: #CBE8FA;
+  --color-sage-soft: #E5F1E9;
+  --color-peach-soft: #F8E2DA;
+  --color-text-primary: #171B20;
+  --color-text-secondary: #596168;
+  --color-text-muted: #929AA1;
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #F4F7F6;
-  --color-bg-tertiary: #EAF0EE;
-  --color-border: #DCE5E2;
-  --color-border-hover: #cbd5e1;
-  --color-success: #0F6E56;
-  --color-success-light: #E1F5EE;
-  --color-warning: #854F0B;
-  --color-warning-light: #FAEEDA;
+  --color-bg-secondary: #F6F7F8;
+  --color-bg-tertiary: #EDF1F3;
+  --color-border: #E1E5E8;
+  --color-border-hover: #C9D0D5;
+  --color-success: #4D806A;
+  --color-success-light: #E5F1E9;
+  --color-warning: #9A684C;
+  --color-warning-light: #F8E2DA;
   --color-danger: #dc2626;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
-  --shadow-lg: 0 10px 32px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-sm: 0 1px 3px rgba(18,27,35,0.06), 0 1px 2px rgba(18,27,35,0.04);
+  --shadow-md: 0 8px 24px rgba(18,27,35,0.08), 0 2px 7px rgba(18,27,35,0.04);
+  --shadow-lg: 0 18px 48px rgba(18,27,35,0.10), 0 5px 16px rgba(18,27,35,0.06);
   --font-sans: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
   --transition: all 0.2s ease;
 }
@@ -136,12 +141,12 @@ img {
   font-size: 11px;
   font-weight: 500;
 }
-.badge-blue   { background: #E6F1FB; color: #185FA5; }
-.badge-teal   { background: #E1F5EE; color: #0F6E56; }
-.badge-amber  { background: #FAEEDA; color: #854F0B; }
-.badge-purple { background: #EEEDFE; color: #534AB7; }
-.badge-pink   { background: #FBEAF0; color: #993556; }
-.badge-gray   { background: #F1EFE8; color: #5F5E5A; }
+.badge-blue   { background: #EAF6FD; color: #2E7FAF; }
+.badge-teal   { background: #E5F1E9; color: #4D806A; }
+.badge-amber  { background: #F8E2DA; color: #9A684C; }
+.badge-purple { background: #E7F3FA; color: #3D7FA5; }
+.badge-pink   { background: #F2ECE9; color: #806F66; }
+.badge-gray   { background: #EDF1F3; color: #596168; }
 
 /* ── 공통 페이지 레이아웃 ────────────────────────────────
    화면마다 page-wrapper / main-content / page-heading 을 각자 정의하면
@@ -188,7 +193,7 @@ img {
   font-size: 9px;
   font-weight: 800;
   letter-spacing: .16em;
-  color: var(--color-primary);
+  color: var(--color-accent-dark);
 }
 .page-heading h1 { font-size: 28px; margin-top: 5px; }
 .page-heading p { font-size: 13px; color: var(--color-text-muted); margin-top: 5px; }
