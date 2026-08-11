@@ -1,7 +1,7 @@
 <template>
   <div ref="root" class="region-select">
-    <button type="button" class="select-trigger" :class="{ open }" aria-label="공급업체 소재지 선택" :aria-expanded="open" @click="open = !open">
-      <span :class="{ placeholder: !selectionSummary }">{{ selectionSummary || '공급업체 소재지 선택' }}</span>
+    <button type="button" class="select-trigger" :class="{ open }" :aria-label="ariaLabel" :aria-expanded="open" @click="open = !open">
+      <span :class="{ placeholder: !selectionSummary }">{{ selectionSummary || placeholder }}</span>
       <b>{{ selectedCount ? `${selectedCount}개` : '' }}</b>
       <i>⌄</i>
     </button>
@@ -108,7 +108,11 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { legalRegions, findCity, findSido } from '@/data/legalRegions.js'
 
-const props = defineProps({ modelValue: { type: Array, default: () => [] } })
+const props = defineProps({
+  modelValue: { type: Array, default: () => [] },
+  placeholder: { type: String, default: '공급업체 소재지 선택' },
+  ariaLabel: { type: String, default: '공급업체 소재지 선택' }
+})
 const emit = defineEmits(['update:modelValue'])
 const root = ref(null)
 const open = ref(false)

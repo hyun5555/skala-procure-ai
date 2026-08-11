@@ -19,7 +19,7 @@
         <form class="condition-form" @submit.prevent="runMatching">
           <label><span>품명</span><select v-model="criteria.product"><option v-for="item in productOptions" :key="item">{{ item }}</option></select></label>
           <label><span>규격·품목 키워드</span><input v-model.trim="criteria.keyword" placeholder="예: Φ300mm, 폴리에틸렌" /></label>
-          <label><span>공급지역</span><input v-model.trim="criteria.supplyRegion" placeholder="예: 전지역, 제주" /></label>
+          <div class="condition-field"><span>공급지역</span><RegionMultiSelect v-model="criteria.supplyRegions" placeholder="희망 공급지역 선택" aria-label="희망 공급지역 선택" /></div>
           <label><span>최대 납품일수</span><select v-model.number="criteria.maxDeliveryDays"><option :value="null">전체</option><option v-for="day in deliveryDayOptions" :key="day" :value="day">{{ day }}일 이내</option></select></label>
           <label><span>필요 수량</span><input v-model.number="criteria.quantity" type="number" min="1" placeholder="100" /></label>
           <label><span>총 예산</span><div class="input-unit"><input v-model.number="criteria.budget" type="number" min="0" placeholder="50,000,000" /><em>원</em></div></label>
@@ -61,6 +61,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import CourseCard from '@/components/CourseCard.vue'
+import RegionMultiSelect from '@/components/RegionMultiSelect.vue'
 import { useCourseStore } from '@/store/course.js'
 import { useAuthStore } from '@/store/auth.js'
 import { companyTypeOptions, deliveryDayOptions, evaluateCourse, productOptions } from '@/utils/procurement.js'
@@ -68,7 +69,7 @@ import { companyTypeOptions, deliveryDayOptions, evaluateCourse, productOptions 
 const courseStore = useCourseStore()
 const auth = useAuthStore()
 const hasMatched = ref(false)
-const criteria = reactive({ product: '전체', detailProduct: '', keyword: '', supplyRegion: '', maxDeliveryDays: null, quantity: null, budget: null, companyType: '전체', certification: '', excellentOnly: false, masOnly: false })
+const criteria = reactive({ product: '전체', detailProduct: '', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, companyType: '전체', certification: '', excellentOnly: false, masOnly: false })
 const loading = computed(() => courseStore.loading)
 const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
 
@@ -80,7 +81,7 @@ const displayCourses = computed(() => {
 
 function runMatching() { hasMatched.value = true }
 function resetMatching() {
-  Object.assign(criteria, { product: '전체', detailProduct: '', keyword: '', supplyRegion: '', maxDeliveryDays: null, quantity: null, budget: null, companyType: '전체', certification: '', excellentOnly: false, masOnly: false })
+  Object.assign(criteria, { product: '전체', detailProduct: '', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, companyType: '전체', certification: '', excellentOnly: false, masOnly: false })
   hasMatched.value = false
 }
 onMounted(() => courseStore.fetchCourses())
@@ -99,8 +100,9 @@ onMounted(() => courseStore.fetchCourses())
 .panel-title p { font-size:12px; color:var(--color-text-muted); margin-top:2px; }
 .step-number { width:38px; height:38px; display:grid; place-items:center; border-radius:10px; color:#fff; background:var(--color-primary); font-size:12px; font-weight:800; }
 .condition-form { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; align-items:end; }
-.condition-form label { display:flex; flex-direction:column; gap:7px; min-width:0; }
-.condition-form label>span { font-size:11px; font-weight:700; color:var(--color-text-secondary); }
+.condition-form label,.condition-field { display:flex; flex-direction:column; gap:7px; min-width:0; }
+.condition-form label>span,.condition-field>span { font-size:11px; font-weight:700; color:var(--color-text-secondary); }
+.condition-field :deep(.select-trigger) { height:46px; }
 .condition-form input,.condition-form select { width:100%; height:46px; padding:0 12px; border:1px solid var(--color-border); border-radius:9px; outline:none; color:var(--color-text-primary); background:#fff; }
 .condition-form input:focus,.condition-form select:focus { border-color:var(--color-primary); box-shadow:0 0 0 3px var(--color-primary-light); }
 .input-unit { position:relative; }

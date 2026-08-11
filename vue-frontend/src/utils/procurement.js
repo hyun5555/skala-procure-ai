@@ -1,3 +1,5 @@
+import { findCity, findSido } from '@/data/legalRegions.js'
+
 export const productOptions = [
   '전체', '파형강관', '파형강관이음관', '피복강관', '피복강관이음', '스틸파일', '주철관', '주철제관이음', '기타 관류'
 ]
@@ -83,6 +85,33 @@ function includesNormalized(source, target) {
   return String(source || '').replaceAll(' ', '').toLowerCase().includes(String(target || '').replaceAll(' ', '').toLowerCase())
 }
 
+function compactRegionName(name = '') {
+  return String(name)
+    .replace(/특별자치도|특별자치시|특별시|광역시|도|시$/g, '')
+    .replaceAll(' ', '')
+}
+
+function matchesSupplyRegion(supplierRegion, selectedRegions = []) {
+  if (!selectedRegions.length || selectedRegions.some(item => item.scope === 'ALL')) return true
+  const source = String(supplierRegion || '')
+  const normalizedSource = source.replaceAll(' ', '')
+  const selectedNames = selectedRegions.map(item => {
+    const sido = findSido(item.sido)
+    const city = item.si === null ? null : findCity(item.sido, item.si)
+    return { sido: sido?.name || '', city: city?.name || '' }
+  })
+
+  if (normalizedSource.includes('전지역')) {
+    const requestsJeju = selectedNames.some(item => compactRegionName(item.sido) === '제주')
+    return !(requestsJeju && /제주.{0,12}제외/.test(normalizedSource))
+  }
+
+  return selectedNames.some(({ sido, city }) => {
+    const targets = [sido, compactRegionName(sido), city, compactRegionName(city)].filter(Boolean)
+    return targets.some(target => includesNormalized(source, target))
+  })
+}
+
 export function evaluateCourse(course, criteria) {
   const specs = parseCapability(course.description)
   const product = specs.product || course.category
@@ -91,7 +120,9 @@ export function evaluateCourse(course, criteria) {
   const detailMatch = !criteria.detailProduct || includesNormalized(specs.detailProduct, criteria.detailProduct)
   const keywordMatch = !criteria.keyword || includesNormalized(searchable, criteria.keyword)
   const companyTypeMatch = !criteria.companyType || criteria.companyType === '전체' || specs.companyType === criteria.companyType
-  const regionMatch = !criteria.supplyRegion || includesNormalized(specs.supplyRegion, criteria.supplyRegion)
+  const regionMatch = criteria.supplyRegions
+    ? matchesSupplyRegion(specs.supplyRegion, criteria.supplyRegions)
+    : (!criteria.supplyRegion || includesNormalized(specs.supplyRegion, criteria.supplyRegion))
   const quantity = Number(criteria.quantity || 0)
   const budget = Number(criteria.budget || 0)
   const totalPrice = Number(course.price || 0) * quantity
