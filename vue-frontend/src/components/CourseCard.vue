@@ -3,7 +3,10 @@
     <div class="card-thumb" :class="thumbBg">
       <div class="product-image" role="img" :aria-label="`${course.category} 제품 이미지`" :style="productImageStyle"></div>
       <span class="material-code">{{ course.category }}</span>
-      <span v-if="course.score !== undefined" class="match-score">{{ course.score }}<small>점</small></span>
+      <span v-if="course.score !== undefined" class="match-score" :title="scoreMeta.tooltip">
+        <small class="score-kind">{{ scoreMeta.label }}</small>
+        <b>{{ course.score }}<small>점</small></b>
+      </span>
     </div>
 
     <!-- 내용 -->
@@ -30,8 +33,17 @@ import { computed } from 'vue'
 import materialGridImage from '@/assets/images/courses/industrial-material-grid.webp'
 
 const props = defineProps({
-  course: { type: Object, required: true }
+  course: { type: Object, required: true },
+  // 목록과 추천이 같은 카드를 쓰는데 course.score 의 의미가 다르다.
+  // fit = 프론트엔드 조건 적합도, supply = 백엔드 공급 신뢰도(QCD).
+  scoreKind: { type: String, default: 'fit' }
 })
+
+const SCORE_META = {
+  fit: { label: '조건 적합도', tooltip: '입력한 조달 조건과 품목 등록정보를 비교한 점수입니다. 거래 성과는 반영되지 않습니다.' },
+  supply: { label: '공급 신뢰도', tooltip: '실제 거래의 품질·납기·비용(QCD)으로 낸 점수입니다. 평가 이력이 없으면 기본 50점입니다.' }
+}
+const scoreMeta = computed(() => SCORE_META[props.scoreKind] || SCORE_META.fit)
 
 // 키가 **화면 라벨**이다(enum 아님). store/course.js 의 categoryLabelMap 값과
 // 철자까지 같아야 한다. 빠지면 회색 배지 + 썸네일 없음으로 떨어진다.
@@ -89,8 +101,10 @@ const productImageStyle = computed(() => ({ backgroundImage: `url(${materialGrid
 .thumb-pink   { --thumb-overlay:rgba(111,77,78,.87); }
 .thumb-gray   { --thumb-overlay:rgba(59,67,73,.9); }
 .material-code { max-width:70%;font-size:24px;font-weight:800;letter-spacing:-.04em;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.28);z-index:1; }
-.match-score { z-index:1; align-self:flex-start; background:#fff; color:var(--color-primary); border-radius:999px; padding:6px 10px; font-size:18px; font-weight:800; box-shadow:var(--shadow-sm); }
+.match-score { z-index:1; align-self:flex-start; display:flex; flex-direction:column; align-items:center; gap:1px; background:#fff; color:var(--color-primary); border-radius:12px; padding:5px 10px; font-size:18px; font-weight:800; box-shadow:var(--shadow-sm); }
+.match-score b { font-size:18px; font-weight:800; line-height:1.05; }
 .match-score small { font-size:10px; margin-left:2px; }
+.score-kind { margin:0; font-size:8px; font-weight:700; letter-spacing:.02em; color:var(--color-text-muted); white-space:nowrap; }
 .card-body {
   padding: 14px 16px;
   display: flex;

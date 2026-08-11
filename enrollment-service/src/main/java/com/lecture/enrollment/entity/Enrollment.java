@@ -108,13 +108,41 @@ public class Enrollment {
     private LocalDateTime updatedAt;
 
     public enum Status {
-        PENDING,   // 수강신청 완료, 결제 대기
-        ACTIVE,    // 결제 완료, 수강 활성화
-        CANCELLED  // 취소
+        PENDING,    // 발주 접수, 결제 대기
+        SHIPPING,   // 결제 완료, 생산·배송 중
+        DELIVERED,  // 납품 완료. 구매기업이 품질을 등록하면 전환된다
+        ACTIVE,     // 레거시. SHIPPING 도입 이전에 결제된 발주가 이 값으로 남아 있다
+        CANCELLED   // 취소
+    }
+
+    /**
+     * 결제가 끝나 납품 단계에 들어선 발주인가.
+     *
+     * 품질 등록과 성과 평가의 전제 조건이다. SHIPPING 도입 전에 결제된 발주는
+     * status 가 ACTIVE 로 남아 있으므로 함께 통과시킨다. 이 값을 빼면 옛 발주가
+     * 품질 등록조차 못 하게 된다.
+     */
+    public boolean isPaid() {
+        return this.status == Status.SHIPPING
+                || this.status == Status.DELIVERED
+                || this.status == Status.ACTIVE;
     }
 
     public void activate() {
-        this.status = Status.ACTIVE;
+        this.status = Status.SHIPPING;
+    }
+
+    /**
+     * 납품이 끝난 것으로 표시한다.
+     *
+     * 백엔드는 배송 완료 시점을 따로 통보받지 않는다. 구매기업이 납품 결과를
+     * 입력했다는 것이 곧 물건을 받았다는 뜻이므로 그것을 신호로 쓴다.
+     * 이미 DELIVERED 면 그대로 두어 재등록에도 상태가 흔들리지 않는다.
+     */
+    public void markDelivered() {
+        if (this.status == Status.SHIPPING || this.status == Status.ACTIVE) {
+            this.status = Status.DELIVERED;
+        }
     }
 
     public void updateQuality(Long deliveredQuantity, Long defectQuantity, String defectType) {
@@ -155,7 +183,19 @@ public class Enrollment {
         this.evaluatedAt = LocalDateTime.now();
     }
 
+    /**
+     * 공급성과(QCD) 평가를 이미 마쳤는가.
+     *
+     * **판정 기준은 evaluatedAt 이 아니라 actualDeliveryDate 다.** evaluatedAt 은
+     * updateQuality() 도 갱신하기 때문에, 그것으로 판정하면 품질만 등록해도
+     * 성과평가가 "이미 평가한 발주"로 막힌다. 화면은 납품완료라고 말하는데
+     * 되먹임의 마지막 단계가 닫히지 않는 상태가 된다.
+     *
+     * actualDeliveryDate 는 evaluate() 만 채우고 updateQuality() 는 건드리지 않는다.
+     * PerformanceRequest 에서 @NotNull 이라 평가가 성공하면 반드시 값이 있다.
+     * 그래서 두 기능을 가르는 기준으로 쓸 수 있다.
+     */
     public boolean isEvaluated() {
-        return this.evaluatedAt != null;
+        return this.actualDeliveryDate != null;
     }
 }

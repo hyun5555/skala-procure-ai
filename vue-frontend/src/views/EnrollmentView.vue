@@ -49,14 +49,14 @@
 
             <div class="enroll-status">
               <span
-                :class="['status-badge', statusClass(item.status)]"
+                :class="['status-badge', statusClass(item)]"
               >
-                {{ orderStatusLabel(item.status) }}
+                {{ orderStatusLabel(item) }}
               </span>
               <span v-if="item.quality" class="quality-badge">품질 등록 · 불량률 {{ item.quality.defectRate }}%</span>
               <div class="card-actions">
                 <button type="button" class="btn btn-ghost btn-sm" @click="openOrderDetail(item)">발주 상세</button>
-                <button v-if="item.status === 'ACTIVE'" type="button" class="btn btn-primary btn-sm" @click="openOrderDetail(item, true)">{{ item.quality ? '품질 수정' : '품질 등록' }}</button>
+                <button v-if="isPaid(item)" type="button" class="btn btn-primary btn-sm" @click="openOrderDetail(item, true)">{{ item.quality ? '품질 수정' : '품질 등록' }}</button>
               </div>
             </div>
           </div>
@@ -83,7 +83,7 @@
 
           <div class="detail-product">
             <div><span>발주 품목</span><strong>{{ selectedEnrollment.course?.title }}</strong><small>{{ selectedEnrollment.course?.instructorName || '공급기업' }}</small></div>
-            <span :class="['status-badge',statusClass(selectedEnrollment.status)]">{{ orderStatusLabel(selectedEnrollment.status) }}</span>
+            <span :class="['status-badge',statusClass(selectedEnrollment)]">{{ orderStatusLabel(selectedEnrollment) }}</span>
           </div>
 
           <div v-if="selectedEnrollment.orderRequest" class="detail-fields">
@@ -104,7 +104,7 @@
             <small>거래번호 {{ paymentFor(selectedEnrollment).transactionId || '-' }}</small>
           </section>
 
-          <section v-if="selectedEnrollment.status === 'ACTIVE'" ref="qualitySection" class="quality-section" aria-labelledby="quality-heading">
+          <section v-if="isPaid(selectedEnrollment)" ref="qualitySection" class="quality-section" aria-labelledby="quality-heading">
             <div class="quality-heading">
               <div><span>DELIVERY QUALITY</span><h3 id="quality-heading">납품 품질관리</h3></div>
               <div v-if="selectedEnrollment.quality" class="quality-score"><small>최근 불량률</small><strong>{{ selectedEnrollment.quality.defectRate }}%</strong></div>
@@ -181,20 +181,47 @@ function getBadge(cat) {
 }
 
 function normalizeEnrollment(item) {
+  const quality = item.quality || item.qualityRecord || (auth.isDemo ? getDemoQualityRecord(item.id) : null)
   return {
     ...item,
+    // 데모는 서버가 없어 상태 전이를 대신 해 줄 주체가 없다. 품질 기록이 있으면
+    // 납품이 끝난 것으로 보아 실제 흐름과 같은 배지가 뜨게 한다.
+    status: auth.isDemo && quality && isPaid(item) ? 'DELIVERED' : item.status,
     course: courseStore.normalizeCourse(item.course),
     orderRequest: item.orderRequest || null,
-    quality: item.quality || item.qualityRecord || (auth.isDemo ? getDemoQualityRecord(item.id) : null)
+    quality
   }
 }
 
-function orderStatusLabel(status) {
-  return { PENDING: '결제 대기', ACTIVE: '주문 확정' }[status] || '주문 종료'
+// 상태 값은 백엔드가 쥔다. ACTIVE 는 SHIPPING 도입 전에 결제된 옛 발주가
+// 그대로 갖고 있는 값이라 배송중과 같게 취급한다.
+const ORDER_STATUS_LABEL = {
+  PENDING: '결제 대기',
+  SHIPPING: '배송중',
+  ACTIVE: '배송중',
+  DELIVERED: '납품완료',
+  CANCELLED: '주문 취소'
 }
 
-function statusClass(status) {
-  return status === 'ACTIVE' ? 'status-active' : status === 'PENDING' ? 'status-pending' : 'status-closed'
+const ORDER_STATUS_CLASS = {
+  PENDING: 'status-pending',
+  SHIPPING: 'status-shipping',
+  ACTIVE: 'status-shipping',
+  DELIVERED: 'status-active',
+  CANCELLED: 'status-closed'
+}
+
+function orderStatusLabel(item) {
+  return ORDER_STATUS_LABEL[item?.status] || '주문 종료'
+}
+
+function statusClass(item) {
+  return ORDER_STATUS_CLASS[item?.status] || 'status-closed'
+}
+
+// 품질 등록·수정은 결제가 끝난 뒤부터 가능하다. 백엔드의 isPaid() 와 같은 기준이다.
+function isPaid(item) {
+  return ['SHIPPING', 'DELIVERED', 'ACTIVE'].includes(item?.status)
 }
 
 function paymentStatusLabel(status) {
@@ -280,9 +307,15 @@ async function submitQuality() {
     const quality = auth.isDemo
       ? saveDemoQualityRecord(selectedEnrollment.value.id, payload)
       : ((await enrollmentApi.updateQuality(selectedEnrollment.value.id, payload)).data?.data)
+    // 서버는 품질 등록과 함께 상태를 DELIVERED 로 옮기지만 이 응답에는 상태가 없다.
+    // 목록을 다시 불러오지 않고 배지를 맞추기 위해 화면에서도 같이 옮긴다.
     selectedEnrollment.value.quality = quality
+    if (isPaid(selectedEnrollment.value)) selectedEnrollment.value.status = 'DELIVERED'
     const index = enrollments.value.findIndex(item => item.id === selectedEnrollment.value.id)
-    if (index >= 0) enrollments.value[index].quality = quality
+    if (index >= 0) {
+      enrollments.value[index].quality = quality
+      enrollments.value[index].status = selectedEnrollment.value.status
+    }
     qualitySuccess.value = '납품 품질 정보가 저장되었습니다.'
   } catch (error) {
     qualityError.value = error.response?.data?.message || '품질 정보 저장에 실패했습니다.'
@@ -487,6 +520,11 @@ onBeforeUnmount(() => {
   background: #FAEEDA;
   color: #854F0B;
 }
+.status-shipping {
+  background: #E7F0FA;
+  color: var(--color-accent-dark);
+}
+
 .status-closed{background:#f1f2f3;color:#687078}
 .quality-badge{padding:4px 10px;border-radius:20px;background:#eef7ff;color:var(--color-accent-dark);font-size:10px}.card-actions{display:flex;gap:7px}
 

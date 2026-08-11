@@ -92,7 +92,8 @@ export function addDemoEnrollment(course, orderRequest = null) {
   const list = getDemoEnrollments()
   const existing = list.find(item => Number(item.courseId) === Number(course.id))
   if (existing) return existing
-  const enrollment = { id: Date.now(), userId: 9001, courseId: course.id, status: 'ACTIVE', createdAt: new Date().toISOString(), course, orderRequest }
+  // 데모는 결제가 즉시 끝난 것으로 본다. 실제 흐름의 결제 완료 상태와 같은 값을 쓴다.
+  const enrollment = { id: Date.now(), userId: 9001, courseId: course.id, status: 'SHIPPING', createdAt: new Date().toISOString(), course, orderRequest }
   list.unshift(enrollment)
   sessionStorage.setItem('demo_enrollments', JSON.stringify(list))
   if (orderRequest) saveOrderRequest(9001, course.id, orderRequest)

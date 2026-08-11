@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS enrollments (
     contact_name    VARCHAR(30)     NOT NULL,
     contact_phone   VARCHAR(30)     NOT NULL,
     estimated_total DECIMAL(19,2)   NOT NULL,
-    status          VARCHAR(20)     NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING | ACTIVE | CANCELLED',
+    status          VARCHAR(20)     NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING 결제대기 | SHIPPING 배송중 | DELIVERED 납품완료 | ACTIVE 레거시(SHIPPING 도입 전 결제분) | CANCELLED 취소',
     -- 공급성과 평가(QCD). 납품 후 구매기업이 입력한다. 평가 전에는 전부 NULL
     delivered_qty        BIGINT              COMMENT 'Quality — 납품수량',
     defect_qty           BIGINT              COMMENT 'Quality — 불량수량',

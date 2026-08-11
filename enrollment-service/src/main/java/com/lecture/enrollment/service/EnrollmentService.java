@@ -103,8 +103,8 @@ public class EnrollmentService {
      * 등록하면 그 공급기업의 누적 지표가 갱신되고 다음 추천에 반영된다.
      * 기획안의 핵심 차별점인 피드백 구조가 여기서 닫힌다.
      *
-     * ACTIVE 인 발주만 평가할 수 있다. 결제가 끝나지 않았거나 취소한 주문은
-     * 납품 자체가 없으므로 평가할 대상이 아니다.
+     * 결제가 끝난 발주만 평가할 수 있다(isPaid — SHIPPING · DELIVERED · ACTIVE).
+     * 결제가 끝나지 않았거나 취소한 주문은 납품 자체가 없으므로 평가할 대상이 아니다.
      *
      * 다시 평가하는 것은 막는다. 같은 발주를 두 번 등록하면 누적 지표에 두 번
      * 반영되어 공급기업 성과가 왜곡된다. 고쳐야 한다면 수정 API 를 따로 만들고
@@ -121,9 +121,9 @@ public class EnrollmentService {
             throw new AccessDeniedException("자신의 발주만 평가할 수 있습니다");
         }
 
-        if (enrollment.getStatus() != Enrollment.Status.ACTIVE) {
+        if (!enrollment.isPaid()) {
             throw new IllegalArgumentException(
-                    "주문이 확정된 발주만 평가할 수 있습니다. 현재 상태: " + enrollment.getStatus());
+                    "결제가 끝난 발주만 평가할 수 있습니다. 현재 상태: " + enrollment.getStatus());
         }
 
         if (enrollment.isEvaluated()) {
@@ -140,6 +140,7 @@ public class EnrollmentService {
                 request.getDefectType(),
                 request.getActualDeliveryDate(),
                 request.getActualAmount());
+        enrollment.markDelivered();
 
         courseServiceClient.applyPerformance(
                 enrollment.getCourseId(),
@@ -164,8 +165,8 @@ public class EnrollmentService {
         if (!enrollment.getUserId().equals(userId)) {
             throw new AccessDeniedException("본인의 발주에만 품질 정보를 등록할 수 있습니다");
         }
-        if (enrollment.getStatus() != Enrollment.Status.ACTIVE) {
-            throw new IllegalArgumentException("주문 확정된 발주에만 품질 정보를 등록할 수 있습니다");
+        if (!enrollment.isPaid()) {
+            throw new IllegalArgumentException("결제가 끝난 발주에만 품질 정보를 등록할 수 있습니다");
         }
         if (request.getDefectQuantity() > request.getDeliveredQuantity()) {
             throw new IllegalArgumentException("불량 수량은 납품 수량보다 많을 수 없습니다");
@@ -185,7 +186,14 @@ public class EnrollmentService {
 
         enrollment.updateQuality(
                 request.getDeliveredQuantity(), request.getDefectQuantity(), request.getDefectType());
+        enrollment.markDelivered();
 
+        // 뒤 세 인자(onTime · 견적 · 실제청구)를 null 로 보내 **Q 축만 갱신한다.**
+        // 납기와 비용은 성과평가에서만 산출하는 값이라 품질 수정이 건드리면 안 된다.
+        //
+        // 그래서 성과평가를 먼저 한 뒤 품질을 고치면 불량률은 따라 움직이지만
+        // 납기 준수율과 견적 대비 증감률은 첫 평가값에 머문다. 품질 정보는 명세가
+        // 재저장을 허용하므로 막지 않고, 대신 이 제약을 여기 적어 둔다.
         courseServiceClient.applyPerformance(
                 enrollment.getCourseId(),
                 enrollment.getDeliveredQty() - previousDeliveredQty,
@@ -214,7 +222,11 @@ public class EnrollmentService {
                             .id(toLong(courseInfo.get("id")))
                             .title((String) courseInfo.get("title"))
                             .description((String) courseInfo.get("description"))
-                            .category(normalizeCategory((String) courseInfo.get("category")))
+                            // 카테고리는 course-service 가 준 enum 값을 그대로 넘긴다.
+                            // 라벨은 vue-frontend 의 store/course.js categoryLabelMap 한 곳에서만
+                            // 정한다. 여기서 한 번 더 바꾸면 그 표가 원본 enum 을 받지 못해
+                            // 매핑에 실패하고 변환된 문자열이 그대로 화면에 노출된다.
+                            .category((String) courseInfo.get("category"))
                             .price(toInteger(courseInfo.get("price")))
                             .thumbnail((String) courseInfo.get("thumbnail"))
                             .instructorName(
@@ -245,8 +257,14 @@ public class EnrollmentService {
      * 수강 이력 조회 - 추천 서비스용
      */
     public EnrollmentDto.EnrollmentHistoryResponse getEnrollmentHistory(Long userId) {
+        // 결제가 끝난 발주는 배송 중이든 납품이 끝났든 모두 '거래한 이력'이다.
+        // ACTIVE 만 보면 SHIPPING/DELIVERED 로 넘어간 발주가 추천에서 통째로 빠져
+        // 이미 산 품목이 다시 추천되고 카테고리 판정도 어긋난다.
         List<Long> activeCourseIds = enrollmentRepository
-                .findByUserIdAndStatus(userId, Enrollment.Status.ACTIVE)
+                .findByUserIdAndStatusIn(userId, List.of(
+                        Enrollment.Status.SHIPPING,
+                        Enrollment.Status.DELIVERED,
+                        Enrollment.Status.ACTIVE))
                 .stream()
                 .map(Enrollment::getCourseId)
                 .collect(Collectors.toList());
@@ -255,19 +273,6 @@ public class EnrollmentService {
                 .userId(userId)
                 .activeCourseIds(activeCourseIds)
                 .build();
-    }
-
-    private String normalizeCategory(String category) {
-        if (category == null) return null;
-
-        return switch (category) {
-            case "BACKEND" -> "백엔드";
-            case "FRONTEND" -> "프론트엔드";
-            case "DEVOPS" -> "DevOps";
-            case "DATA" -> "데이터";
-            case "AI" -> "AI";
-            default -> category;
-        };
     }
 
     private Long toLong(Object value) {

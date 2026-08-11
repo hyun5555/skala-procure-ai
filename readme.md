@@ -93,6 +93,51 @@ lsof -nP -iTCP:3000 -sTCP:LISTEN   # 점유 프로세스 확인
 | `instructor@lecture.com` | `INSTRUCTOR` | 공급기업 |
 | `student@lecture.com` | `STUDENT` | 구매기업 |
 
+### 조달 카탈로그 시드
+
+`init-db/02_seed_catalog.sql` 이 **DB 가 처음 만들어질 때 자동으로** 공급기업 45곳과
+조달 품목 262건을 넣는다. 따로 실행할 명령이 없다. clone 직후 `docker compose up -d`
+한 번이면 카탈로그가 채워진 상태로 뜬다.
+
+원본은 [`init-db/Data.csv`](init-db/Data.csv) 다. **CSV 자체는 적재되지 않는다** —
+MariaDB 엔트리포인트는 `/docker-entrypoint-initdb.d` 의 `.sql` 과 `.sh` 만 실행하고
+`.csv` 는 무시한다. CSV 를 고쳤으면 SQL 을 다시 만들어 함께 커밋한다.
+
+```bash
+python3 scripts/generate-seed-sql.py
+```
+
+`02_seed_catalog.sql` 은 생성물이다. 손으로 고치면 다음 생성 때 사라진다.
+
+**이미 데이터가 있는 볼륨에는 적용되지 않는다.** 엔트리포인트가 첫 초기화에서만
+`init-db` 를 보기 때문이다. 지금 돌고 있는 DB 에 넣으려면 직접 흘려 넣는다.
+중복을 건너뛰도록 작성되어 있어 여러 번 실행해도 품목이 쌓이지 않는다.
+
+```bash
+docker exec -i lecturedb mariadb -umanager -pSqlDba-1 lecture_db < init-db/02_seed_catalog.sql
+```
+
+**실행하면 마지막에 적재 건수가 출력된다.** 기대값과 다르면 그 자리에서 알 수 있다.
+
+```text
+항목            건수   기대값
+시드 공급기업     45     45
+시드 품목        262    262
+```
+
+품목 `INSERT` 는 공급기업을 이메일로 찾는데 **그 계정이 없으면 오류 없이 0행이 들어간다.**
+계정 `INSERT` 는 `IGNORE` 라 같은 이메일이 다른 이름으로 이미 있어도 조용히 넘어간다.
+둘 다 실패가 눈에 띄지 않는 조합이라 건수를 직접 확인한다.
+
+**시드 계정은 로그인되지 않는다.** SQL 에 BCrypt 해시 함수가 없고 CLAUDE.md 가
+비밀번호 커밋을 금지해서, 원문을 알 수 없는 해시를 넣는다. 품목의 `instructor_id`
+가 가리킬 대상이자 공급기업 이름의 출처로만 쓴다. 로그인이 필요하면
+[`init-db/03_seed_password.sh`](init-db/03_seed_password.sh) 의 주석을 보거나,
+게이트웨이 API 로 넣는 [`scripts/seed-catalog.py`](scripts/seed-catalog.py) 를 쓴다.
+
+262 건 중 **오늘 기준 유효한 계약은 94 건**이다. 나머지는 계약이 끝나 목록에서
+빠진다. 만료 필터가 동작하는 것이지 적재 실패가 아니다.
+
 `courses` 테이블은 비어 있다. **공급기업 계정으로 가공 서비스를 먼저 등록해야** 발주 흐름을 볼 수 있다.
 
 ## 개발

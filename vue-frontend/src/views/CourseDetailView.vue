@@ -112,9 +112,11 @@ import { enrollmentApi } from '@/api/enrollment.js'
 import { useAuthStore } from '@/store/auth.js'
 import { authApi } from '@/api/auth.js'
 import { parseCapability } from '@/utils/procurement.js'
-import { addDemoEnrollment, getDemoEnrollments } from '@/data/demo.js'
+import { addDemoEnrollment, getDemoEnrollments, getDemoQualityRecord } from '@/data/demo.js'
 const route=useRoute(),router=useRouter(),courseStore=useCourseStore(),auth=useAuthStore()
 const enrolling=ref(false),enrollError=ref(''),modalError=ref(''),enrollmentStatus=ref('NONE'),showOrderModal=ref(false)
+// ACTIVE 는 SHIPPING 도입 전에 결제된 옛 발주가 갖고 있는 값이라 함께 본다.
+const PAID_ORDER_STATUSES=['SHIPPING','DELIVERED','ACTIVE']
 const supplierProfile=ref(null)
 const orderQuantityInput=ref(null),orderDeliveryDateInput=ref(null),orderDeliveryPlaceInput=ref(null),orderContactNameInput=ref(null),orderContactPhoneInput=ref(null)
 const orderForm=reactive({quantity:1,deliveryDate:'',deliveryPlace:'',notes:'',contactName:'',contactPhone:''})
@@ -135,11 +137,15 @@ const specItems=computed(()=>[
 ])
 const detailText=computed(()=>[specs.value.certification&&`인증: ${specs.value.certification}`,`우수제품: ${specs.value.excellent==='Y'?'해당':'해당 없음'}`,`MAS: ${specs.value.mas==='Y'?'등록':'미등록'}`,specs.value.contractPeriod&&`계약기간: ${specs.value.contractPeriod}`,specs.value.deliveryTerms&&`인도조건: ${specs.value.deliveryTerms}`].filter(Boolean).join(' · '))
 const recommendationReason=computed(()=>[specs.value.deliveryDays&&`${specs.value.deliveryDays} 납품`,specs.value.supplyRegion,specs.value.certification&&specs.value.certification.split(',').slice(0,2).join('·'),specs.value.excellent==='Y'&&'우수제품',specs.value.mas==='Y'&&'MAS 등록'].filter(Boolean).join(' · ')||'등록된 품목과 납품조건을 기준으로 비교할 수 있습니다.')
-const statusLabel=computed(()=>({ACTIVE:'주문 확정',PENDING:'결제 처리 중'}[enrollmentStatus.value]||'요청 전'))
-const buttonLabel=computed(()=>course.value?.status==='INACTIVE'?'품절된 품목':isInstructor.value?'공급기업 계정은 발주 불가':enrollmentStatus.value==='ACTIVE'?'내 발주 내역 보기':enrollmentStatus.value==='PENDING'?'발주 접수 완료':enrollmentStatus.value==='NONE'?'견적 요청 및 발주':'처리 완료된 발주')
-const buttonDisabled=computed(()=>enrolling.value||isInstructor.value||course.value?.status==='INACTIVE'||!['NONE','ACTIVE'].includes(enrollmentStatus.value))
-const helperText=computed(()=>course.value?.status==='INACTIVE'?'현재 공급기업이 거래를 중지한 품목입니다.':isInstructor.value?'공급기업 계정에서는 구매 발주를 생성할 수 없습니다.':enrollmentStatus.value==='ACTIVE'?'결제가 완료되어 주문이 확정되었습니다.':enrollmentStatus.value==='PENDING'?'발주가 접수되어 결제를 처리하고 있습니다.':enrollmentStatus.value==='NONE'?'요청 시 발주 접수와 결제가 연속으로 처리됩니다.':'처리 완료된 주문입니다.')
-async function loadStatus(){if(!auth.user?.id||!course.value?.id||isInstructor.value)return;if(auth.isDemo){const found=getDemoEnrollments().find(v=>Number(v.courseId)===Number(course.value.id));enrollmentStatus.value=found?.status||'NONE';return}try{const res=await enrollmentApi.getMyEnrollments();const list=Array.isArray(res.data?.data)?res.data.data:Array.isArray(res.data)?res.data:[];const found=list.find(v=>Number(v.courseId)===Number(course.value.id));enrollmentStatus.value=found?.status||'NONE'}catch{enrollmentStatus.value='NONE'}}
+// 발주 관리 화면과 같은 기준으로 표시한다. 같은 발주가 화면마다 다른 말로 보이면 안 된다.
+const isOrdered=computed(()=>PAID_ORDER_STATUSES.includes(enrollmentStatus.value))
+const statusLabel=computed(()=>({PENDING:'결제 처리 중',SHIPPING:'배송중',ACTIVE:'배송중',DELIVERED:'납품완료',CANCELLED:'주문 취소'}[enrollmentStatus.value]||'요청 전'))
+const buttonLabel=computed(()=>course.value?.status==='INACTIVE'?'품절된 품목':isInstructor.value?'공급기업 계정은 발주 불가':isOrdered.value?'내 발주 내역 보기':enrollmentStatus.value==='PENDING'?'발주 접수 완료':enrollmentStatus.value==='NONE'?'견적 요청 및 발주':'처리 완료된 발주')
+const buttonDisabled=computed(()=>enrolling.value||isInstructor.value||course.value?.status==='INACTIVE'||!(enrollmentStatus.value==='NONE'||isOrdered.value))
+const helperText=computed(()=>course.value?.status==='INACTIVE'?'현재 공급기업이 거래를 중지한 품목입니다.':isInstructor.value?'공급기업 계정에서는 구매 발주를 생성할 수 없습니다.':enrollmentStatus.value==='DELIVERED'?'납품이 완료되어 품질 데이터가 반영되었습니다.':isOrdered.value?'결제가 완료되어 공급기업이 생산·납품을 진행하고 있습니다.':enrollmentStatus.value==='PENDING'?'발주가 접수되어 결제를 처리하고 있습니다.':enrollmentStatus.value==='NONE'?'요청 시 발주 접수와 결제가 연속으로 처리됩니다.':'처리 완료된 주문입니다.')
+async function loadStatus(){if(!auth.user?.id||!course.value?.id||isInstructor.value)return;if(auth.isDemo){const found=getDemoEnrollments().find(v=>Number(v.courseId)===Number(course.value.id));if(!found){enrollmentStatus.value='NONE';return}
+// 데모는 상태를 옮겨 줄 서버가 없다. 품질 기록을 납품 완료 신호로 쓴다.
+const demoQuality=getDemoQualityRecord(found.id);enrollmentStatus.value=demoQuality&&PAID_ORDER_STATUSES.includes(found.status)?'DELIVERED':found.status;return}try{const res=await enrollmentApi.getMyEnrollments();const list=Array.isArray(res.data?.data)?res.data.data:Array.isArray(res.data)?res.data:[];const found=list.find(v=>Number(v.courseId)===Number(course.value.id));enrollmentStatus.value=found?.status||'NONE'}catch{enrollmentStatus.value='NONE'}}
 function formatLocalDate(date){const year=date.getFullYear(),month=String(date.getMonth()+1).padStart(2,'0'),day=String(date.getDate()).padStart(2,'0');return `${year}-${month}-${day}`}
 function recommendedDeliveryDate(){const days=Number.parseInt(specs.value.deliveryDays,10)||0;const date=new Date();date.setDate(date.getDate()+days);return formatLocalDate(date)}
 function lockPage(){bodyOverflowBeforeModal=document.body.style.overflow;document.body.style.overflow='hidden'}
@@ -172,8 +178,8 @@ function validateOrder(){
   nextTick(()=>inputRefs[firstInvalid]?.value?.focus())
   return false
 }
-async function handlePrimaryAction(){enrollError.value='';if(enrollmentStatus.value==='ACTIVE')return router.push('/enrollments');if(!course.value?.id||isInstructor.value)return;openOrderModal()}
-async function submitOrder(){if(!validateOrder()||!course.value?.id)return;enrolling.value=true;const orderRequest={courseId:course.value.id,quantity:Number(orderForm.quantity),unit:specs.value.unit||'개',deliveryDate:orderForm.deliveryDate,deliveryPlace:orderForm.deliveryPlace.trim(),notes:orderForm.notes.trim(),contactName:orderForm.contactName.trim(),contactPhone:orderForm.contactPhone.trim()};try{if(auth.isDemo){addDemoEnrollment(course.value,{...orderRequest,estimatedTotal:estimatedTotal.value});enrollmentStatus.value='ACTIVE'}else{await enrollmentApi.enroll(orderRequest);enrollmentStatus.value='PENDING'}showOrderModal.value=false;unlockPage();await router.push('/enrollments')}catch(e){modalError.value=e.response?.data?.message||'견적·발주 요청에 실패했습니다.'}finally{enrolling.value=false}}
+async function handlePrimaryAction(){enrollError.value='';if(isOrdered.value)return router.push('/enrollments');if(!course.value?.id||isInstructor.value)return;openOrderModal()}
+async function submitOrder(){if(!validateOrder()||!course.value?.id)return;enrolling.value=true;const orderRequest={courseId:course.value.id,quantity:Number(orderForm.quantity),unit:specs.value.unit||'개',deliveryDate:orderForm.deliveryDate,deliveryPlace:orderForm.deliveryPlace.trim(),notes:orderForm.notes.trim(),contactName:orderForm.contactName.trim(),contactPhone:orderForm.contactPhone.trim()};try{if(auth.isDemo){addDemoEnrollment(course.value,{...orderRequest,estimatedTotal:estimatedTotal.value});enrollmentStatus.value='SHIPPING'}else{await enrollmentApi.enroll(orderRequest);enrollmentStatus.value='PENDING'}showOrderModal.value=false;unlockPage();await router.push('/enrollments')}catch(e){modalError.value=e.response?.data?.message||'견적·발주 요청에 실패했습니다.'}finally{enrolling.value=false}}
 onMounted(async()=>{document.addEventListener('keydown',handleEscape);await courseStore.fetchCourse(route.params.id);await loadStatus();if(!auth.isDemo&&course.value?.instructorId){try{const res=await authApi.getUser(course.value.instructorId);supplierProfile.value=res.data?.data||res.data}catch{supplierProfile.value=null}}})
 onBeforeUnmount(()=>{document.removeEventListener('keydown',handleEscape);if(showOrderModal.value)unlockPage()})
 </script>

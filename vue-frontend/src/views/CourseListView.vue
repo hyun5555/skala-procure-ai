@@ -17,7 +17,7 @@
           <span v-if="recommendationCategory" class="recommend-category">관심 품명 · {{ recommendationCategory }}</span>
         </div>
         <div v-if="recommendationLoading" class="loading-grid"><div v-for="i in 3" :key="i" class="skeleton-card"></div></div>
-        <div v-else-if="recommendedCourses.length" class="course-grid"><CourseCard v-for="course in recommendedCourses" :key="`recommend-${course.id}`" :course="course" /></div>
+        <div v-else-if="recommendedCourses.length" class="course-grid"><CourseCard v-for="course in recommendedCourses" :key="`recommend-${course.id}`" :course="course" score-kind="supply" /></div>
         <p v-else class="recommend-empty">{{ recommendationError || '추천 결과가 아직 없습니다.' }}</p>
       </section>
 
@@ -95,10 +95,23 @@ const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
 const specificationOptions = ['소형', '중형', '대형', '주문 규격']
 const certificationOptions = ['KS', '여성기업', '장애인기업', '창업기업', '품질보증조달물품']
 
+// 점수는 조건 입력 전에도 매긴다.
+//
+// 조건을 비워 두면 evaluateCourse 가 품목 자체의 값(납품일수·인증·우수제품·MAS)
+// 으로만 점수를 낸다. 예산·수량이 없을 때 가격 축은 중간값을 쓴다. 그래서 조건
+// 입력 전에도 카드마다 비교 가능한 점수가 나온다.
+//
+// 이전에는 여기서 원본 배열을 그대로 돌려줘 course.score 가 undefined 였고,
+// CourseCard 의 v-if 가 점수 배지를 통째로 숨겼다. 조건을 넣어 매칭을 돌려야
+// 비로소 점수가 나타나 '필터를 걸어야 점수가 생기는' 화면이 됐다.
+//
+// **거르기와 정렬은 매칭 후에만 한다.** 조건 입력 전 목록은 카탈로그 둘러보기라
+// 등록 순서를 유지한다.
 const displayCourses = computed(() => {
   const courses = Array.isArray(courseStore.courses) ? courseStore.courses : []
-  if (!hasMatched.value) return courses
-  return courses.map(course => evaluateCourse(course, criteria)).filter(course => course.eligible).sort((a, b) => b.score - a.score)
+  const scored = courses.map(course => evaluateCourse(course, criteria))
+  if (!hasMatched.value) return scored
+  return scored.filter(course => course.eligible).sort((a, b) => b.score - a.score)
 })
 
 async function runMatching() {
