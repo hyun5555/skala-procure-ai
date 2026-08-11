@@ -27,6 +27,22 @@ public class UserController {
     }
 
     /**
+     * GET /users/register?email=... - 이메일 사용 가능 여부 (인증 불필요)
+     *
+     * 게이트웨이가 토큰 없이 통과시키는 경로는 /api/users/register 하나뿐이다.
+     * 가입 화면은 로그인 전이므로 신규 경로를 만들면 401 에 막혀 도달하지 못한다.
+     * 그래서 새 경로 대신 이미 열려 있는 경로에 GET 을 얹었다.
+     * 게이트웨이는 이미지로만 제공되어 허용 규칙을 바꿀 수 없다.
+     */
+    @GetMapping("/register")
+    public ResponseEntity<UserDto.ApiResponse<UserDto.EmailAvailability>> checkEmail(
+            @RequestParam String email) {
+        return ResponseEntity.ok(
+                UserDto.ApiResponse.success(userService.checkEmailAvailability(email))
+        );
+    }
+
+    /**
      * GET /users/{id} - 사용자 조회 (인증 필요)
      */
     @GetMapping("/{id}")

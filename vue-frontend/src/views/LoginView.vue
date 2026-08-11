@@ -112,7 +112,16 @@
 
           <label class="field">
             <span>이메일</span>
-            <input v-model.trim="registerForm.email" type="email" placeholder="buyer@example.com" required />
+            <input
+              v-model.trim="registerForm.email"
+              type="email"
+              placeholder="buyer@example.com"
+              required
+              @blur="checkEmailAvailability"
+            />
+            <small v-if="emailChecking" class="field-hint">확인 중...</small>
+            <small v-else-if="emailTaken === true" class="field-hint is-taken">이미 사용 중인 이메일입니다</small>
+            <small v-else-if="emailTaken === false" class="field-hint is-free">사용할 수 있는 이메일입니다</small>
           </label>
 
           <label class="field">
@@ -166,6 +175,10 @@ const success = ref('')
 
 const registerForm = ref({ name: '', email: '', password: '', role: 'STUDENT' })
 
+// null = 아직 확인 안 함, true = 중복, false = 사용 가능
+const emailTaken = ref(null)
+const emailChecking = ref(false)
+
 const features = [
   '품명·규격·지역 기반 공급업체 필터링',
   '단가·납기·인증·MAS 종합 추천',
@@ -175,6 +188,7 @@ const features = [
 function switchTo(register) {
   error.value = ''
   success.value = ''
+  emailTaken.value = null
   showRegister.value = register
 }
 
@@ -187,6 +201,26 @@ function handleDemo(role) {
   router.push(role === 'INSTRUCTOR' ? '/mypage' : '/courses')
 }
 
+// 제출 전에 중복을 알려주기 위한 조회다.
+// 확인 실패는 가입을 막지 않는다. 최종 판정은 서버의 POST 응답이다.
+async function checkEmailAvailability() {
+  const email = registerForm.value.email
+  if (!email || !email.includes('@')) {
+    emailTaken.value = null
+    return
+  }
+
+  emailChecking.value = true
+  try {
+    const res = await authApi.checkEmail(email)
+    emailTaken.value = res.data?.data?.available === false
+  } catch (e) {
+    emailTaken.value = null
+  } finally {
+    emailChecking.value = false
+  }
+}
+
 async function handleRegister() {
   error.value = ''
   success.value = ''
@@ -195,6 +229,7 @@ async function handleRegister() {
     await authApi.register(registerForm.value)
     success.value = '회원가입이 완료되었습니다. 로그인 탭에서 인증해 주세요.'
     registerForm.value = { name: '', email: '', password: '', role: 'STUDENT' }
+    emailTaken.value = null
   } catch (e) {
     error.value = e.response?.data?.message || '회원가입에 실패했습니다.'
   } finally {
@@ -448,6 +483,10 @@ async function handleRegister() {
 .demo-btn.supplier b { color: var(--color-secondary); }
 
 /* 메시지 유무와 관계없이 높이를 유지한다 */
+.field-hint { font-size: 11px; }
+.field-hint.is-taken { color: #b91c1c; }
+.field-hint.is-free { color: var(--color-primary); }
+
 .msg-slot { min-height: 38px; display: flex; align-items: center; }
 .msg { font-size: 12px; padding: 10px 12px; border-radius: 8px; width: 100%; }
 .msg.error { background: #fef2f2; color: #b91c1c; }

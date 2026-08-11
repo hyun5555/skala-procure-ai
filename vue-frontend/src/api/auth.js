@@ -38,5 +38,12 @@ export const authApi = {
   // 회원가입
   register(data) {
     return api.post('/api/users/register', data)
+  },
+
+  // 이메일 사용 가능 여부 (인증 불필요)
+  // 게이트웨이가 토큰 없이 통과시키는 경로가 /api/users/register 하나뿐이라
+  // 별도 경로 대신 같은 경로의 GET 을 쓴다. 자세한 사정은 docs/constraints.md 에 있다.
+  checkEmail(email) {
+    return api.get('/api/users/register', { params: { email } })
   }
 }

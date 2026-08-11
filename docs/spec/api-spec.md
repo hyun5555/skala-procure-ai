@@ -34,6 +34,7 @@
 | Method | URL | 조달 도메인 의미 | 인증 |
 | --- | --- | --- | --- |
 | POST | `/api/users/register` | 기업 회원가입 | 공개 |
+| GET | `/api/users/register?email=` | 이메일 중복 확인 | 공개 |
 | GET | `/api/users/me` | 로그인한 내 기업 정보 | 토큰 |
 | GET | `/api/users/{id}` | 특정 기업 정보 | 토큰 |
 | GET | `/api/users/internal/{id}` | 서비스 간 호출 | service |
@@ -58,6 +59,34 @@
 ```
 
 공급기업으로 가입하려면 `"role": "INSTRUCTOR"` 로 보낸다. 가공 서비스 등록은 이 역할만 가능하다.
+
+`role` 에 `STUDENT` `INSTRUCTOR` 가 아닌 값을 보내면 400 이다. 대소문자도 구분한다.
+
+```json
+// 400
+{ "success": false, "message": "허용되지 않는 값입니다: ADMIN (가능한 값: [STUDENT, INSTRUCTOR])", "data": null }
+```
+
+### 이메일 중복 확인
+
+가입 폼이 제출 전에 중복을 알려주기 위한 조회다. 아무것도 저장하지 않는다.
+
+```json
+// GET /api/users/register?email=student@lecture.com
+{ "success": true, "message": "성공", "data": { "email": "student@lecture.com", "available": false } }
+```
+
+**경로가 `POST` 회원가입과 같은 것은 의도된 것이다.** 게이트웨이가 토큰 없이 통과시키는 경로는 `/api/users/register` 하나뿐이고, 가입 화면은 로그인 전이라 신규 경로를 만들면 401 에 막힌다. 게이트웨이는 이미지로만 제공되어 허용 규칙을 바꿀 수 없다. 확인 결과다.
+
+```text
+POST /api/users/register        → 통과
+GET  /api/users/register        → 통과
+POST /api/users/check-email     → 401
+GET  /api/users/check-email     → 401
+POST /api/users/anything        → 401
+```
+
+**최종 판정은 이 조회가 아니라 `POST` 응답이다.** 확인과 제출 사이에 다른 사람이 같은 이메일로 가입할 수 있다. 프론트엔드는 확인 실패를 가입 차단으로 쓰지 않는다.
 
 ## 2. 소재·가공 서비스 — course-service
 

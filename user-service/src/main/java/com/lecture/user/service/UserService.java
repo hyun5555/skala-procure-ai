@@ -39,6 +39,17 @@ public class UserService {
     }
 
     /**
+     * 이메일 사용 가능 여부.
+     * 가입 폼이 제출 전에 중복을 알려주기 위한 조회이며 아무것도 저장하지 않는다.
+     */
+    public UserDto.EmailAvailability checkEmailAvailability(String email) {
+        return UserDto.EmailAvailability.builder()
+                .email(email)
+                .available(!userRepository.existsByEmail(email))
+                .build();
+    }
+
+    /**
      * 사용자 단건 조회
      */
     public UserDto.UserResponse getUserById(Long id) {
@@ -51,7 +62,6 @@ public class UserService {
      * 이메일로 사용자 조회 (서비스 간 내부 호출용)
      */
     public UserDto.UserResponse getUserByEmail(String email) {
-        System.out.println(">>> getUserByEmail email = " + email);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + email));
         return UserDto.UserResponse.from(user);

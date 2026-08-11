@@ -56,6 +56,16 @@ public class UserDto {
         }
     }
 
+    // 이메일 사용 가능 여부 응답
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class EmailAvailability {
+        private String email;
+        private boolean available;
+    }
+
     // 공통 API 응답 래퍼
     @Getter
     @NoArgsConstructor
