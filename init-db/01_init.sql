@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS courses (
     category         VARCHAR(50)     NOT NULL COMMENT 'BACKEND|FRONTEND|DEVOPS|DATA_SCIENCE|MOBILE|SECURITY|DATABASE|OTHER',
     price            DECIMAL(10,2)   NOT NULL,
     instructor_id    BIGINT          NOT NULL,
+    instructor_name  VARCHAR(100)             COMMENT '등록 시 user-service 에서 조회해 저장. 조회 실패 시 NULL',
     enrollment_count INT             NOT NULL DEFAULT 0,
     status           VARCHAR(20)     NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE | INACTIVE',
     created_at       DATETIME(6),

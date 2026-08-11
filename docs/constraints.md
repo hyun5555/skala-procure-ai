@@ -127,6 +127,16 @@ paymentServiceClient.requestPayment(userId, courseId, BigDecimal.valueOf(99000))
 
 컬럼을 추가하기 전에 **`description` 자유 텍스트에 구분자로 담고 프론트엔드에서 파싱해 표로 표시**하는 방법을 먼저 검토한다. `description` 은 `TEXT` 라 길이 제약이 사실상 없다.
 
+## 받은 뒤 손으로 해야 하는 것
+
+`ddl-auto: update` 가 처리하지 못하는 변경은 여기에 모은다. **pull 한 뒤 이 절을 확인한다.**
+
+| 날짜 | 무엇 | 실행 |
+| --- | --- | --- |
+| 2026-08-11 | `courses.instructor_name` 백필 | `scripts/migrations/2026-08-11-backfill-instructor-name.sql` |
+
+`ddl-auto: update` 는 **없는 컬럼을 추가할 뿐** 기존 컬럼의 폭·타입을 바꾸지 않고 **값을 채우지도 않는다.** 컬럼 추가만 있는 변경은 서비스를 다시 빌드하면 끝나므로 여기 적지 않는다.
+
 ## 카테고리 enum 슬롯
 
 백엔드 `Course.Category` 는 8개 값으로 고정되어 있다.

@@ -39,6 +39,12 @@ public class Course {
     @Column(nullable = false)
     private Long instructorId;
 
+    // 공급기업 이름. 등록 시 user-service 에서 한 번 조회해 여기에 둔다.
+    // 조회 때마다 부르면 목록 한 번에 품목 수만큼 호출이 나간다.
+    // 조회에 실패했거나 이 컬럼이 생기기 전에 등록된 품목은 null 이다.
+    @Column(length = 100)
+    private String instructorName;
+
     // 수강생 수 (추천 서비스 정렬 기준)
     @Column(nullable = false)
     @Builder.Default

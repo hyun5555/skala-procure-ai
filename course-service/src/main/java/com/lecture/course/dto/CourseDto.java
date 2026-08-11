@@ -44,6 +44,7 @@ public class CourseDto {
         private Course.Category category;
         private BigDecimal price;
         private Long instructorId;
+        private String instructorName;
         private Integer enrollmentCount;
         private Course.Status status;
         private LocalDateTime createdAt;
@@ -56,6 +57,7 @@ public class CourseDto {
                     .category(course.getCategory())
                     .price(course.getPrice())
                     .instructorId(course.getInstructorId())
+                    .instructorName(course.getInstructorName())
                     .enrollmentCount(course.getEnrollmentCount())
                     .status(course.getStatus())
                     .createdAt(course.getCreatedAt())

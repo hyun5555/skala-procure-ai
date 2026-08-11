@@ -23,6 +23,10 @@ class CourseResponse(BaseModel):
     category: CourseCategory
     price: Decimal
     instructorId: int
+    # course-service 가 품목 등록 시 채워 두는 공급기업 이름.
+    # 이 필드를 선언하지 않으면 pydantic 이 걸러 내서 추천 카드의 업체명이 빈다.
+    # 컬럼이 생기기 전에 등록된 품목은 None 이다.
+    instructorName: Optional[str] = None
     enrollmentCount: int
     status: str
     createdAt: Optional[datetime] = None

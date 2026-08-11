@@ -16,9 +16,13 @@ import java.util.stream.Collectors;
 public class CourseService {
 
     private final CourseRepository courseRepository;
+    private final UserServiceClient userServiceClient;
 
     /**
      * 강의 등록 (강사만 가능 - SecurityConfig에서 role 검증)
+     *
+     * 등록 시점에 공급기업 이름을 한 번 조회해 함께 저장한다.
+     * 조회에 실패하면 null 로 두고 등록은 그대로 진행한다.
      */
     @Transactional
     public CourseDto.CourseResponse createCourse(CourseDto.CreateRequest request, Long instructorId) {
@@ -28,6 +32,7 @@ public class CourseService {
                 .category(request.getCategory())
                 .price(request.getPrice())
                 .instructorId(instructorId)
+                .instructorName(userServiceClient.getUserName(instructorId))
                 .build();
 
         return CourseDto.CourseResponse.from(courseRepository.save(course));
