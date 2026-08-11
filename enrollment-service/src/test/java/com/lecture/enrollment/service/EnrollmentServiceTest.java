@@ -10,13 +10,19 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.security.access.AccessDeniedException;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -90,5 +96,54 @@ class EnrollmentServiceTest {
         EnrollmentDto.EnrollmentResponse response = EnrollmentDto.EnrollmentResponse.from(legacy);
 
         assertThat(response.getOrderRequest()).isNull();
+    }
+
+    /**
+     * 소유자 대조가 사라져도 화면은 멀쩡히 돈다. 손으로 다시 확인하지 않으면 아무도 모른다.
+     * 네 서비스가 전부 permitAll 이라 이 대조가 유일한 방어선이다.
+     */
+    @Test
+    void cancelRejectsOtherUsersOrder() {
+        Enrollment mine = Enrollment.builder().userId(3L).courseId(7L).build();
+        when(enrollmentRepository.findById(11L)).thenReturn(Optional.of(mine));
+
+        assertThatThrownBy(() -> enrollmentService.cancel(999L, 11L))
+                .isInstanceOf(AccessDeniedException.class);
+
+        assertThat(mine.getStatus()).isEqualTo(Enrollment.Status.PENDING);
+        verifyNoInteractions(paymentServiceClient);
+    }
+
+    /**
+     * 결제가 몇 초 만에 끝나므로 발주 직후 취소를 누르면 이벤트 처리보다 취소가 먼저 도착한다.
+     * 상태를 보지 않고 덮어쓰면 취소한 발주가 되살아난다.
+     */
+    @Test
+    void activateSkipsCancelledEnrollment() {
+        Enrollment cancelled = Enrollment.builder().userId(3L).courseId(7L).build();
+        cancelled.cancel();
+        when(enrollmentRepository.findByUserIdAndCourseId(3L, 7L)).thenReturn(Optional.of(cancelled));
+
+        enrollmentService.activateEnrollment(3L, 7L);
+
+        assertThat(cancelled.getStatus()).isEqualTo(Enrollment.Status.CANCELLED);
+        verifyNoInteractions(courseServiceClient);
+        verifyNoInteractions(kafkaProducer);
+    }
+
+    /**
+     * Kafka 는 at-least-once 라 payment.completed 가 두 번 올 수 있다.
+     * 두 번째부터는 건너뛰어야 거래건수가 부풀지 않는다.
+     */
+    @Test
+    void activateIsIdempotentForDuplicateEvents() {
+        Enrollment enrollment = Enrollment.builder().userId(3L).courseId(7L).build();
+        when(enrollmentRepository.findByUserIdAndCourseId(3L, 7L)).thenReturn(Optional.of(enrollment));
+
+        enrollmentService.activateEnrollment(3L, 7L);
+        enrollmentService.activateEnrollment(3L, 7L);
+
+        assertThat(enrollment.getStatus()).isEqualTo(Enrollment.Status.ACTIVE);
+        verify(courseServiceClient, times(1)).increaseEnrollmentCount(7L);
     }
 }

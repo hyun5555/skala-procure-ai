@@ -93,12 +93,14 @@ POST /api/users/anything        → 401
 | Method | URL | 조달 도메인 의미 | 인증 |
 | --- | --- | --- | --- |
 | POST | `/api/courses` | 공급기업이 가공 서비스 등록 | INSTRUCTOR |
+| PUT | `/api/courses/{id}` | 등록한 공급기업이 품목 수정 | INSTRUCTOR |
 | GET | `/api/courses` | 전체 가공 서비스 목록 | 토큰 |
 | GET | `/api/courses/{id}` | 가공 서비스 상세 | 토큰 |
 | GET | `/api/courses/category/{category}` | 소재 계열별 조회 | 토큰 |
 | GET | `/api/courses/internal/exists/{id}` | 발주 시 존재 확인 | service |
 | GET | `/api/courses/internal/{id}` | 발주 목록 조립용 | service |
 | POST | `/api/courses/internal/{id}/enrollment-count` | 거래 건수 증가 | service |
+| POST | `/api/courses/internal/{id}/enrollment-count/decrease` | 거래 건수 감소 (발주 취소) | service |
 | GET | `/api/courses/internal/recommend` | 추천 후보 조회 | service |
 
 ```json
@@ -141,6 +143,7 @@ POST /api/users/anything        → 401
 | Method | URL | 조달 도메인 의미 | 인증 |
 | --- | --- | --- | --- |
 | POST | `/api/enrollments` | 발주 요청. 생성 시 `PENDING` | 토큰 |
+| DELETE | `/api/enrollments/{id}` | 발주 취소. 행은 남고 상태만 `CANCELLED` | 토큰 |
 | GET | `/api/enrollments/my` | 내 발주·주문 목록 | 토큰 |
 | GET | `/api/enrollments/user/{userId}` | 특정 기업의 발주 목록 | 토큰 |
 | GET | `/api/enrollments/internal/history/{userId}` | 추천용 거래 이력 | service |
@@ -198,6 +201,43 @@ POST /api/users/anything        → 401
 
 상태 값은 `PENDING`(결제 대기) · `ACTIVE`(주문 확정) · `CANCELLED`(취소) 세 개다.
 
+### 품목 수정
+
+```json
+// PUT /api/courses/{id} — description 을 받지 않는다
+{ "title": "수도용덕타일주철관, Φ300mm×6m, 2종", "category": "SECURITY", "price": 640000 }
+```
+
+**`description` 은 수정 대상이 아니다.** 조달 명세 16개 항목이 그 한 칸에 들어 있는데 등록 폼은 그중 다섯(`기업구분`·`세부품명`·`물품식별번호`·`납품장소`·`쇼핑몰등록일자`)을 수집하지 않는다. 등록 폼을 수정 화면으로 재사용하면 단가 하나만 고쳐도 그 항목들이 영구히 사라진다. **서버가 기존 값을 지킨다.**
+
+| 상황 | 응답 |
+| --- | --- |
+| 남의 품목을 수정 | 403 `자신이 등록한 품목만 수정할 수 있습니다` |
+
+### 발주 취소
+
+`DELETE /api/enrollments/{id}` 는 **행을 지우지 않고 상태만 `CANCELLED` 로 바꾼다.** 결제 내역과 대조할 근거가 사라지면 안 되기 때문이다. 취소하면 세 가지가 함께 일어난다.
+
+```text
+1. enrollment  status → CANCELLED
+2. payment     status → CANCELLED   (POST /api/payments/internal/cancel)
+3. course      거래건수 −1           (ACTIVE 였던 발주만. PENDING 은 올라간 적이 없다)
+```
+
+결제가 끝난 발주도 취소할 수 있다. Kafka 로 결제가 몇 초 만에 완료되어 `PENDING` 은 사실상 스쳐 지나가므로, `PENDING` 만 허용하면 취소할 수 있는 발주가 없는 것과 같다.
+
+2·3번은 실패해도 취소 자체를 막지 않는다. 그것 때문에 사용자가 취소를 못 하게 되는 편이 나쁘다. 실패는 로그에 남는다.
+
+**취소한 뒤 `payment.completed` 가 도착해도 되살아나지 않는다.** `PENDING` 인 발주만 확정 대상이다. 결제가 몇 초 만에 끝나므로 발주 직후 취소를 누르면 이벤트보다 취소가 먼저 도착할 수 있고, 상태를 보지 않고 덮어쓰면 취소가 사라진다. 같은 가드가 Kafka 중복 배달(at-least-once)로 거래건수가 두 번 오르는 것도 막는다.
+
+| 상황 | 응답 |
+| --- | --- |
+| 남의 발주를 취소 | 403 `자신의 발주만 취소할 수 있습니다` |
+| 이미 취소한 발주 | 400 `이미 취소된 발주입니다` |
+| **취소한 품목을 다시 발주** | 400 `이미 수강신청한 강의입니다` |
+
+마지막 줄이 중요하다. `enrollments` 에 `UNIQUE (user_id, course_id)` 가 있어 **행이 남아 있는 한 같은 품목을 다시 발주할 수 없다.** 취소 기록을 남기는 대가다. 재발주가 필요하면 제약을 풀어야 하고 그것은 [`../constraints.md`](../constraints.md) 5번에 걸린다.
+
 ### 발주 → 결제 → 확정 흐름
 
 **프론트엔드가 호출하는 API는 `POST /api/enrollments` 하나뿐이다.** 나머지는 서버 내부에서 연쇄적으로 일어난다.
@@ -221,6 +261,7 @@ POST /api/users/anything        → 401
 | GET | `/api/payments/{id}` | 결제 단건 조회 | 토큰 |
 | GET | `/api/payments/user/{userId}` | 기업 결제 내역 | 토큰 |
 | POST | `/api/payments/internal/request` | 결제 실행. enrollment-service만 호출 | service |
+| POST | `/api/payments/internal/cancel` | 결제 취소. enrollment-service만 호출 | service |
 
 ```json
 // GET /api/payments/user/3

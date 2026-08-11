@@ -36,6 +36,17 @@ public class PaymentDto {
         private BigDecimal amount;
     }
 
+    // 내부 서비스 결제 취소 요청 (Enrollment Service → Payment Service)
+    // 발주가 취소되면 결제 내역도 함께 취소로 표시한다.
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class InternalCancelRequest {
+        private Long userId;
+        private Long courseId;
+    }
+
     // 결제 응답
     @Getter
     @NoArgsConstructor

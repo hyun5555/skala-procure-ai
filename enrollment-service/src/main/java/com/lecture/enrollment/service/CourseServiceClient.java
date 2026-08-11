@@ -106,4 +106,26 @@ public class CourseServiceClient {
                     courseId, e.getMessage());
         }
     }
+
+    /**
+     * Course Service: 거래건수 감소 (발주 취소 시 호출)
+     *
+     * 실패해도 예외를 던지지 않는다. 증가 쪽과 같은 방침이다.
+     * 거래건수는 지표일 뿐이고 이것 때문에 취소가 막히면 사용자가 더 곤란하다.
+     */
+    public void decreaseEnrollmentCount(Long courseId) {
+        try {
+            webClientBuilder.build()
+                    .post()
+                    .uri("http://course-service/api/courses/internal/{id}/enrollment-count/decrease", courseId)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+
+            log.info("[CourseServiceClient] 거래건수 감소 완료 - courseId: {}", courseId);
+        } catch (Exception e) {
+            log.error("[CourseServiceClient] 거래건수 감소 실패 - courseId: {}, error: {}",
+                    courseId, e.getMessage());
+        }
+    }
 }

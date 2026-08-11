@@ -73,4 +73,30 @@ public class Course {
     public void increaseEnrollmentCount() {
         this.enrollmentCount++;
     }
+
+    /**
+     * 발주가 취소되면 거래건수를 되돌린다.
+     * 기획안의 누적 거래건수에 그대로 대응하는 값이라 취소분이 남아 있으면 지표가 부풀려진다.
+     * 0 미만으로 내려가지 않게 막는다. 취소 요청이 중복으로 와도 음수가 되어서는 안 된다.
+     */
+    public void decreaseEnrollmentCount() {
+        if (this.enrollmentCount > 0) {
+            this.enrollmentCount--;
+        }
+    }
+
+    /**
+     * 공급기업이 등록한 품목 정보를 고친다.
+     *
+     * **description 은 바꾸지 않는다.** 조달 명세 16개 항목이 그 한 칸에 들어 있는데
+     * 등록 폼은 기업구분·세부품명·물품식별번호·납품장소·쇼핑몰등록일자를 수집하지 않는다.
+     * 그 폼을 수정 화면으로 재사용하면 단가 하나만 고쳐도 다섯 항목이 사라진다.
+     *
+     * 등록자와 거래건수도 바뀌지 않는다.
+     */
+    public void update(String title, Category category, BigDecimal price) {
+        this.title = title;
+        this.category = category;
+        this.price = price;
+    }
 }

@@ -43,6 +43,20 @@ public class CourseController {
     }
 
     /**
+     * PUT /courses/{id} - 품목 수정 (등록한 공급기업만)
+     * Gateway가 전달한 X-User-Id 로 등록자를 대조한다
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<CourseDto.ApiResponse<CourseDto.CourseResponse>> updateCourse(
+            @PathVariable Long id,
+            @Valid @RequestBody CourseDto.UpdateRequest request,
+            @RequestHeader("X-User-Id") Long instructorId) {
+
+        CourseDto.CourseResponse response = courseService.updateCourse(id, request, instructorId);
+        return ResponseEntity.ok(CourseDto.ApiResponse.success(response));
+    }
+
+    /**
      * GET /courses/{id} - 강의 상세
      */
     @GetMapping("/{id}")
@@ -88,6 +102,16 @@ public class CourseController {
     @PostMapping("/internal/{id}/enrollment-count")
     public ResponseEntity<Void> increaseEnrollmentCount(@PathVariable Long id) {
         courseService.increaseEnrollmentCount(id);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * POST /courses/internal/{id}/enrollment-count/decrease - 거래건수 감소
+     * Enrollment Service 가 발주 취소 시 호출한다
+     */
+    @PostMapping("/internal/{id}/enrollment-count/decrease")
+    public ResponseEntity<Void> decreaseEnrollmentCount(@PathVariable Long id) {
+        courseService.decreaseEnrollmentCount(id);
         return ResponseEntity.ok().build();
     }
 

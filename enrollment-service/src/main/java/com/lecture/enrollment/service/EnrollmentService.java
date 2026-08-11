@@ -7,6 +7,7 @@ import com.lecture.enrollment.kafka.KafkaEvent;
 import com.lecture.enrollment.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,13 +63,29 @@ public class EnrollmentService {
     }
 
     /**
-     * 수강 활성화
+     * 결제 완료 이벤트를 받아 주문을 확정한다.
+     *
+     * **PENDING 인 것만 확정한다.** 두 가지를 막는다.
+     *
+     * 하나. 결제가 몇 초 만에 끝나므로 사용자가 발주 직후 취소를 누르면 이벤트
+     * 처리보다 취소가 먼저 도착할 수 있다. 상태를 보지 않고 덮어쓰면 취소한 발주가
+     * ACTIVE 로 되살아나고, 결제는 CANCELLED 인데 발주는 ACTIVE 인 상태가 남는다.
+     * 거래건수도 취소했는데 올라간다.
+     *
+     * 둘. Kafka 는 at-least-once 라 payment.completed 가 두 번 올 수 있다.
+     * 상태를 보지 않으면 거래건수가 두 번 올라간다.
      */
     @Transactional
     public void activateEnrollment(Long userId, Long courseId) {
         Enrollment enrollment = enrollmentRepository.findByUserIdAndCourseId(userId, courseId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "수강 정보를 찾을 수 없습니다 - userId: " + userId + ", courseId: " + courseId));
+
+        if (enrollment.getStatus() != Enrollment.Status.PENDING) {
+            log.warn("[EnrollmentService] 확정 대상이 아니라 건너뜀 - enrollmentId: {}, status: {}",
+                    enrollment.getId(), enrollment.getStatus());
+            return;
+        }
 
         enrollment.activate();
 
@@ -83,6 +100,51 @@ public class EnrollmentService {
         );
 
         log.info("[EnrollmentService] 수강 활성화 완료 - enrollmentId: {}", enrollment.getId());
+    }
+
+    /**
+     * 발주 취소
+     *
+     * 상태만 CANCELLED 로 바꾸고 행은 남긴다. 결제 내역과 대조할 근거가 사라지면 안 된다.
+     *
+     * 이미 결제가 끝난 발주도 취소할 수 있다. Kafka 로 결제가 몇 초 만에 완료되어
+     * PENDING 은 사실상 스쳐 지나가므로, PENDING 만 허용하면 취소할 수 있는 발주가
+     * 없는 것과 같다.
+     *
+     * 결제 취소와 거래건수 감소는 실패해도 취소 자체를 막지 않는다. 각 클라이언트가
+     * 예외를 삼키고 로그만 남긴다. 그것 때문에 사용자가 취소를 못 하게 되는 편이 나쁘다.
+     *
+     * enrollments 에 UNIQUE (user_id, course_id) 가 있어 **취소한 품목을 다시 발주할
+     * 수는 없다.** 행을 남기는 대가다. 재발주를 허용하려면 제약을 풀어야 하고 그것은
+     * docs/constraints.md 의 5번 항목에 걸린다.
+     */
+    @Transactional
+    public EnrollmentDto.EnrollmentResponse cancel(Long userId, Long enrollmentId) {
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new IllegalArgumentException("발주를 찾을 수 없습니다: " + enrollmentId));
+
+        if (!enrollment.getUserId().equals(userId)) {
+            throw new AccessDeniedException("자신의 발주만 취소할 수 있습니다");
+        }
+
+        if (enrollment.getStatus() == Enrollment.Status.CANCELLED) {
+            throw new IllegalArgumentException("이미 취소된 발주입니다");
+        }
+
+        boolean wasActive = enrollment.getStatus() == Enrollment.Status.ACTIVE;
+        enrollment.cancel();
+
+        paymentServiceClient.cancelPayment(userId, enrollment.getCourseId());
+
+        // 거래건수는 ACTIVE 로 전환될 때 올라간다. PENDING 에서 취소하면 내릴 것이 없다.
+        if (wasActive) {
+            courseServiceClient.decreaseEnrollmentCount(enrollment.getCourseId());
+        }
+
+        log.info("[EnrollmentService] 발주 취소 - enrollmentId: {}, userId: {}, 이전 상태: {}",
+                enrollmentId, userId, wasActive ? "ACTIVE" : "PENDING");
+
+        return EnrollmentDto.EnrollmentResponse.from(enrollment);
     }
 
     /**

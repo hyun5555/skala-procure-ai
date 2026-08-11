@@ -2,6 +2,7 @@ package com.lecture.enrollment.config;
 
 import com.lecture.enrollment.dto.EnrollmentDto;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -26,6 +27,15 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(EnrollmentDto.ApiResponse.error(message));
+    }
+
+    /**
+     * 남의 것을 고치거나 취소하려 한 요청. 서버 오류가 아니라 권한 문제이므로 403 이다.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<EnrollmentDto.ApiResponse<Void>> handleAccessDenied(AccessDeniedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(EnrollmentDto.ApiResponse.error(e.getMessage()));
     }
 
     @ExceptionHandler(RuntimeException.class)

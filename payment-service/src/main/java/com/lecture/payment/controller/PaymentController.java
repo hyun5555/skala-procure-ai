@@ -28,6 +28,18 @@ public class PaymentController {
     }
 
     /**
+     * POST /payments/internal/cancel - 내부 결제 취소 (Enrollment Service 호출)
+     * 발주가 취소되면 결제 내역도 취소로 표시한다.
+     */
+    @PostMapping("/internal/cancel")
+    public ResponseEntity<Void> cancelInternalPayment(
+            @RequestBody PaymentDto.InternalCancelRequest request) {
+
+        paymentService.cancelInternalPayment(request);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
      * GET /payments/{id} - 결제 단건 조회
      */
     @GetMapping("/{id}")

@@ -88,6 +88,29 @@ public class PaymentService {
     }
 
     /**
+     * 내부 결제 취소 (Enrollment Service 호출)
+     *
+     * 발주가 취소되면 결제 내역도 취소로 표시한다. 그러지 않으면 취소한 주문의
+     * 결제가 COMPLETED 로 남아 결제 내역이 사실과 달라진다.
+     *
+     * 결제 기록이 없어도 예외를 던지지 않는다. 결제가 실패했거나 아직 생기지
+     * 않은 발주도 취소할 수 있어야 한다.
+     */
+    @Transactional
+    public void cancelInternalPayment(PaymentDto.InternalCancelRequest request) {
+        paymentRepository.findByUserIdAndCourseId(request.getUserId(), request.getCourseId())
+                .ifPresentOrElse(
+                        payment -> {
+                            payment.cancel();
+                            log.info("[PaymentService] 결제 취소 - paymentId: {}, userId: {}, courseId: {}",
+                                    payment.getId(), request.getUserId(), request.getCourseId());
+                        },
+                        () -> log.info("[PaymentService] 취소할 결제 기록 없음 - userId: {}, courseId: {}",
+                                request.getUserId(), request.getCourseId())
+                );
+    }
+
+    /**
      * 결제 단건 조회
      */
     public PaymentDto.PaymentResponse getPayment(Long id) {

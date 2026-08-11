@@ -66,4 +66,13 @@ public class Payment {
     public void fail() {
         this.status = Status.FAILED;
     }
+
+    /**
+     * 발주가 취소되면 결제도 함께 취소로 표시한다.
+     * 실제 환불은 PG 연동이 필요하고 이 실습에는 PG 가 없으므로 상태만 바꾼다.
+     * transactionId 는 지우지 않는다. 어떤 거래가 취소된 것인지 남아야 한다.
+     */
+    public void cancel() {
+        this.status = Status.CANCELLED;
+    }
 }

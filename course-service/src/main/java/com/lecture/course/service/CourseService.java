@@ -4,6 +4,7 @@ import com.lecture.course.dto.CourseDto;
 import com.lecture.course.entity.Course;
 import com.lecture.course.repository.CourseRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,6 +66,26 @@ public class CourseService {
     }
 
     /**
+     * 품목 수정 (등록한 공급기업만 가능)
+     *
+     * 게이트웨이가 넣어 주는 X-User-Id 와 등록자를 대조한다. 서비스가 permitAll 이라
+     * 이 대조를 빼면 남의 품목을 아무나 고칠 수 있다.
+     */
+    @Transactional
+    public CourseDto.CourseResponse updateCourse(Long id, CourseDto.CreateRequest request, Long instructorId) {
+        Course course = findCourseById(id);
+
+        if (!course.getInstructorId().equals(instructorId)) {
+            throw new AccessDeniedException("자신이 등록한 품목만 수정할 수 있습니다");
+        }
+
+        // description 은 건드리지 않는다. 조달 명세가 통째로 사라지는 것을 막는다.
+        course.update(request.getTitle(), request.getCategory(), request.getPrice());
+
+        return CourseDto.CourseResponse.from(course);
+    }
+
+    /**
      * 강의 존재 여부 확인 (Enrollment Service → Course Service REST 호출용)
      */
     public boolean existsCourse(Long id) {
@@ -78,6 +99,15 @@ public class CourseService {
     public void increaseEnrollmentCount(Long courseId) {
         Course course = findCourseById(courseId);
         course.increaseEnrollmentCount();
+    }
+
+    /**
+     * 거래건수 감소 (Enrollment Service 발주 취소 시 호출)
+     */
+    @Transactional
+    public void decreaseEnrollmentCount(Long courseId) {
+        Course course = findCourseById(courseId);
+        course.decreaseEnrollmentCount();
     }
 
     /**
