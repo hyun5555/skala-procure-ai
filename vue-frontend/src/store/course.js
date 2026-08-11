@@ -89,7 +89,7 @@ export const useCourseStore = defineStore('course', () => {
 
     try {
       if (useAuthStore().isDemo) {
-        courses.value = getDemoCourses().map(normalizeCourse)
+        courses.value = getDemoCourses().filter(course => course.status === 'ACTIVE').map(normalizeCourse)
         return
       }
       const res = await courseApi.getAll()

@@ -77,6 +77,22 @@ public class CourseService {
                 .collect(Collectors.toList());
     }
 
+    public List<CourseDto.CourseResponse> getCoursesByInstructor(Long instructorId) {
+        return courseRepository.findByInstructorId(instructorId).stream()
+                .map(CourseDto.CourseResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public CourseDto.CourseResponse updateCourseStatus(Long courseId, Long instructorId, Course.Status status) {
+        Course course = findCourseById(courseId);
+        if (!course.getInstructorId().equals(instructorId)) {
+            throw new IllegalArgumentException("본인이 등록한 품목의 상태만 변경할 수 있습니다");
+        }
+        course.updateStatus(status);
+        return CourseDto.CourseResponse.from(course);
+    }
+
     /**
      * 카테고리별 강의 조회
      */
@@ -110,7 +126,7 @@ public class CourseService {
      * 강의 존재 여부 확인 (Enrollment Service → Course Service REST 호출용)
      */
     public boolean existsCourse(Long id) {
-        return courseRepository.existsById(id);
+        return courseRepository.existsByIdAndStatus(id, Course.Status.ACTIVE);
     }
 
     /**

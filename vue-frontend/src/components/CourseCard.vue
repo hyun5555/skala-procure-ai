@@ -1,9 +1,9 @@
 <template>
   <router-link :to="`/courses/${course.id}`" class="course-card">
     <div class="card-thumb" :class="thumbBg">
+      <div class="product-image" role="img" :aria-label="`${course.category} 제품 이미지`" :style="productImageStyle"></div>
       <span class="material-code">{{ course.category }}</span>
       <span v-if="course.score !== undefined" class="match-score">{{ course.score }}<small>점</small></span>
-      <div class="factory-lines" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
 
     <!-- 내용 -->
@@ -27,6 +27,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import materialGridImage from '@/assets/images/courses/industrial-material-grid.webp'
 
 const props = defineProps({
   course: { type: Object, required: true }
@@ -35,19 +36,20 @@ const props = defineProps({
 // 키가 **화면 라벨**이다(enum 아님). store/course.js 의 categoryLabelMap 값과
 // 철자까지 같아야 한다. 빠지면 회색 배지 + 썸네일 없음으로 떨어진다.
 const categoryConfig = {
-  '파형강관':       { bg: 'thumb-teal',   badge: 'badge-teal' },
-  '파형강관이음관': { bg: 'thumb-teal',   badge: 'badge-teal' },
-  '피복강관':       { bg: 'thumb-blue',   badge: 'badge-blue' },
-  '피복강관이음':   { bg: 'thumb-blue',   badge: 'badge-blue' },
-  '스틸파일':       { bg: 'thumb-amber',  badge: 'badge-purple' },
-  '주철관':         { bg: 'thumb-purple', badge: 'badge-purple' },
-  '주철제관이음':   { bg: 'thumb-pink',   badge: 'badge-pink' },
-  '기타 관류':      { bg: 'thumb-gray',   badge: 'badge-gray' },
+  '파형강관':       { bg: 'thumb-teal',   badge: 'badge-teal',   position: '0% 0%' },
+  '파형강관이음관': { bg: 'thumb-teal',   badge: 'badge-teal',   position: '0% 0%' },
+  '피복강관':       { bg: 'thumb-blue',   badge: 'badge-blue',   position: '100% 0%' },
+  '피복강관이음':   { bg: 'thumb-blue',   badge: 'badge-blue',   position: '100% 0%' },
+  '스틸파일':       { bg: 'thumb-amber',  badge: 'badge-purple', position: '0% 100%' },
+  '주철관':         { bg: 'thumb-purple', badge: 'badge-purple', position: '100% 100%' },
+  '주철제관이음':   { bg: 'thumb-pink',   badge: 'badge-pink',   position: '100% 100%' },
+  '기타 관류':      { bg: 'thumb-gray',   badge: 'badge-gray',   position: '0% 100%' },
 }
 
 const config = computed(() => categoryConfig[props.course.category] || { bg: 'thumb-gray', badge: 'badge-gray' })
 const thumbBg = computed(() => config.value.bg)
 const badgeClass = computed(() => config.value.badge)
+const productImageStyle = computed(() => ({ backgroundImage: `url(${materialGridImage})`, backgroundPosition: config.value.position || '0% 100%' }))
 
 </script>
 
@@ -68,7 +70,7 @@ const badgeClass = computed(() => config.value.badge)
   border-color: var(--color-border-hover);
 }
 .card-thumb {
-  height: 112px;
+  height: 146px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -77,19 +79,18 @@ const badgeClass = computed(() => config.value.badge)
   justify-content: space-between;
   padding: 20px;
 }
-.thumb-teal   { background: #E5F1E9; }
-.thumb-blue   { background: #EAF6FD; }
-.thumb-amber  { background: #F8E2DA; }
-.thumb-purple { background: #DDEFFA; }
-.thumb-pink   { background: #F2ECE9; }
-.thumb-gray   { background: #EDF1F3; }
-.material-code { font-size: 24px; font-weight: 800; letter-spacing: -.04em; color: rgba(23,37,35,.8); z-index:1; }
+.card-thumb::after { content:'';position:absolute;inset:0;z-index:0;background:linear-gradient(90deg,var(--thumb-overlay) 0%,rgba(25,31,35,.46) 52%,rgba(25,31,35,.06) 100%);backdrop-filter:blur(1.2px); }
+.product-image { position:absolute;inset:-2px;background-repeat:no-repeat;background-size:200% auto;filter:saturate(.72) contrast(.96);transition:background-size .35s ease; }
+.course-card:hover .product-image { background-size:210% auto; }
+.thumb-teal   { --thumb-overlay:rgba(57,92,76,.9); }
+.thumb-blue   { --thumb-overlay:rgba(43,91,119,.9); }
+.thumb-amber  { --thumb-overlay:rgba(126,83,58,.88); }
+.thumb-purple { --thumb-overlay:rgba(69,78,109,.88); }
+.thumb-pink   { --thumb-overlay:rgba(111,77,78,.87); }
+.thumb-gray   { --thumb-overlay:rgba(59,67,73,.9); }
+.material-code { max-width:70%;font-size:24px;font-weight:800;letter-spacing:-.04em;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.28);z-index:1; }
 .match-score { z-index:1; align-self:flex-start; background:#fff; color:var(--color-primary); border-radius:999px; padding:6px 10px; font-size:18px; font-weight:800; box-shadow:var(--shadow-sm); }
 .match-score small { font-size:10px; margin-left:2px; }
-.factory-lines { position:absolute; right:18px; bottom:-4px; display:flex; align-items:flex-end; gap:5px; opacity:.14; }
-.factory-lines i { width:20px; height:52px; background:currentColor; border-radius:4px 4px 0 0; }
-.factory-lines i:nth-child(2) { height:72px; }
-.factory-lines i:nth-child(3) { height:43px; }
 .card-body {
   padding: 14px 16px;
   display: flex;

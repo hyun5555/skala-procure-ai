@@ -34,10 +34,6 @@
       <AppFooter />
     </div>
 
-    <Transition name="toast">
-      <div v-if="orderSuccessMessage" class="success-toast" role="status"><b>✓</b>{{ orderSuccessMessage }}</div>
-    </Transition>
-
     <Teleport to="body">
       <div v-if="showOrderModal" class="modal-backdrop" @click.self="closeOrderModal">
         <section class="order-modal" role="dialog" aria-modal="true" aria-labelledby="order-modal-title">
@@ -51,19 +47,22 @@
             <div class="unit-price"><span>등록 단가</span><strong>{{ displayPrice }}원</strong><small>/ {{ specs.unit || '단위' }}</small></div>
           </div>
 
-          <form class="order-form" @submit.prevent="submitOrder">
+          <form class="order-form" novalidate @submit.prevent="submitOrder">
             <div class="form-grid">
-              <label>
+              <label :class="{ invalid: fieldErrors.quantity }">
                 <span>발주 수량 <em>*</em></span>
-                <div class="input-with-unit"><input ref="orderQuantityInput" v-model.number="orderForm.quantity" type="number" min="1" step="1" inputmode="numeric" required><b>{{ specs.unit || '개' }}</b></div>
+                <div class="input-with-unit"><input ref="orderQuantityInput" v-model.number="orderForm.quantity" type="number" min="1" step="1" inputmode="numeric" @input="clearFieldError('quantity')"><b>{{ specs.unit || '개' }}</b></div>
+                <small v-if="fieldErrors.quantity" class="field-error">{{ fieldErrors.quantity }}</small>
               </label>
-              <label>
+              <label :class="{ invalid: fieldErrors.deliveryDate }">
                 <span>희망 납품일 <em>*</em></span>
-                <input v-model="orderForm.deliveryDate" type="date" :min="minimumDeliveryDate" required>
+                <input ref="orderDeliveryDateInput" v-model="orderForm.deliveryDate" type="date" :min="minimumDeliveryDate" @input="clearFieldError('deliveryDate')">
+                <small v-if="fieldErrors.deliveryDate" class="field-error">{{ fieldErrors.deliveryDate }}</small>
               </label>
-              <label class="wide-field">
-                <span>납품 장소 <em>*</em></span>
-                <input v-model.trim="orderForm.deliveryPlace" type="text" maxlength="100" placeholder="예: 서울특별시 강남구 테헤란로 123, 현장 자재창고" required>
+              <label class="wide-field" :class="{ invalid: fieldErrors.deliveryPlace }">
+                <span>배송지 <em>*</em></span>
+                <input ref="orderDeliveryPlaceInput" v-model.trim="orderForm.deliveryPlace" type="text" maxlength="100" placeholder="예: 서울특별시 강남구 테헤란로 123, 현장 자재창고" @input="clearFieldError('deliveryPlace')">
+                <small v-if="fieldErrors.deliveryPlace" class="field-error">{{ fieldErrors.deliveryPlace }}</small>
               </label>
               <label class="wide-field">
                 <span>요청사항</span>
@@ -72,13 +71,15 @@
               </label>
 
               <div class="wide-field contact-heading"><strong>담당자 정보 <em>*</em></strong><span>필수 입력</span></div>
-              <label>
+              <label :class="{ invalid: fieldErrors.contactName }">
                 <span>담당자명 <em>*</em></span>
-                <input v-model.trim="orderForm.contactName" type="text" maxlength="30" placeholder="예: 홍길동" required>
+                <input ref="orderContactNameInput" v-model.trim="orderForm.contactName" type="text" maxlength="30" placeholder="예: 홍길동" @input="clearFieldError('contactName')">
+                <small v-if="fieldErrors.contactName" class="field-error">{{ fieldErrors.contactName }}</small>
               </label>
-              <label>
+              <label :class="{ invalid: fieldErrors.contactPhone }">
                 <span>연락처 <em>*</em></span>
-                <input v-model.trim="orderForm.contactPhone" type="tel" maxlength="30" placeholder="예: 010-1234-5678" required>
+                <input ref="orderContactPhoneInput" v-model.trim="orderForm.contactPhone" type="tel" inputmode="tel" maxlength="13" placeholder="예: 010-1234-5678" @input="sanitizePhone">
+                <small v-if="fieldErrors.contactPhone" class="field-error">{{ fieldErrors.contactPhone }}</small>
               </label>
             </div>
 
@@ -111,10 +112,11 @@ import { useAuthStore } from '@/store/auth.js'
 import { parseCapability } from '@/utils/procurement.js'
 import { addDemoEnrollment, getDemoEnrollments } from '@/data/demo.js'
 const route=useRoute(),router=useRouter(),courseStore=useCourseStore(),auth=useAuthStore()
-const enrolling=ref(false),enrollError=ref(''),modalError=ref(''),enrollmentStatus=ref('NONE'),showOrderModal=ref(false),orderSuccessMessage=ref('')
-const orderQuantityInput=ref(null)
+const enrolling=ref(false),enrollError=ref(''),modalError=ref(''),enrollmentStatus=ref('NONE'),showOrderModal=ref(false)
+const orderQuantityInput=ref(null),orderDeliveryDateInput=ref(null),orderDeliveryPlaceInput=ref(null),orderContactNameInput=ref(null),orderContactPhoneInput=ref(null)
 const orderForm=reactive({quantity:1,deliveryDate:'',deliveryPlace:'',notes:'',contactName:'',contactPhone:''})
-let bodyOverflowBeforeModal='',focusedElementBeforeModal=null,successTimer=null
+const fieldErrors=reactive({quantity:'',deliveryDate:'',deliveryPlace:'',contactName:'',contactPhone:''})
+let bodyOverflowBeforeModal='',focusedElementBeforeModal=null
 const course=computed(()=>courseStore.selectedCourse),loading=computed(()=>courseStore.loading),isInstructor=computed(()=>auth.user?.role==='INSTRUCTOR')
 const backTarget=computed(()=>isInstructor.value?'/mypage':'/courses')
 const backLabel=computed(()=>isInstructor.value?'품목 대시보드로 돌아가기':'매칭 결과로 돌아가기')
@@ -131,23 +133,46 @@ const specItems=computed(()=>[
 const detailText=computed(()=>[specs.value.certification&&`인증: ${specs.value.certification}`,`우수제품: ${specs.value.excellent==='Y'?'해당':'해당 없음'}`,`MAS: ${specs.value.mas==='Y'?'등록':'미등록'}`,specs.value.contractPeriod&&`계약기간: ${specs.value.contractPeriod}`,specs.value.deliveryTerms&&`인도조건: ${specs.value.deliveryTerms}`].filter(Boolean).join(' · '))
 const recommendationReason=computed(()=>[specs.value.deliveryDays&&`${specs.value.deliveryDays} 납품`,specs.value.supplyRegion,specs.value.certification&&specs.value.certification.split(',').slice(0,2).join('·'),specs.value.excellent==='Y'&&'우수제품',specs.value.mas==='Y'&&'MAS 등록'].filter(Boolean).join(' · ')||'등록된 품목과 납품조건을 기준으로 비교할 수 있습니다.')
 const statusLabel=computed(()=>enrollmentStatus.value==='ACTIVE'?'주문 확정':enrollmentStatus.value==='PENDING'?'결제 처리 중':'요청 전')
-const buttonLabel=computed(()=>isInstructor.value?'공급기업 계정은 발주 불가':enrollmentStatus.value==='ACTIVE'?'내 발주 내역 보기':enrollmentStatus.value==='PENDING'?'발주 접수 완료':'견적 요청 및 발주')
-const buttonDisabled=computed(()=>enrolling.value||isInstructor.value||enrollmentStatus.value==='PENDING')
-const helperText=computed(()=>isInstructor.value?'공급기업 계정에서는 구매 발주를 생성할 수 없습니다.':enrollmentStatus.value==='ACTIVE'?'결제가 완료되어 주문이 확정되었습니다.':enrollmentStatus.value==='PENDING'?'발주가 접수되어 결제를 처리하고 있습니다.':'요청 시 발주 접수와 결제가 연속으로 처리됩니다.')
+const buttonLabel=computed(()=>course.value?.status==='INACTIVE'?'품절된 품목':isInstructor.value?'공급기업 계정은 발주 불가':enrollmentStatus.value==='ACTIVE'?'내 발주 내역 보기':enrollmentStatus.value==='PENDING'?'발주 접수 완료':'견적 요청 및 발주')
+const buttonDisabled=computed(()=>enrolling.value||isInstructor.value||course.value?.status==='INACTIVE'||enrollmentStatus.value==='PENDING')
+const helperText=computed(()=>course.value?.status==='INACTIVE'?'현재 공급기업이 거래를 중지한 품목입니다.':isInstructor.value?'공급기업 계정에서는 구매 발주를 생성할 수 없습니다.':enrollmentStatus.value==='ACTIVE'?'결제가 완료되어 주문이 확정되었습니다.':enrollmentStatus.value==='PENDING'?'발주가 접수되어 결제를 처리하고 있습니다.':'요청 시 발주 접수와 결제가 연속으로 처리됩니다.')
 async function loadStatus(){if(!auth.user?.id||!course.value?.id||isInstructor.value)return;if(auth.isDemo){const found=getDemoEnrollments().find(v=>Number(v.courseId)===Number(course.value.id));enrollmentStatus.value=found?'ACTIVE':'NONE';return}try{const res=await enrollmentApi.getMyEnrollments();const list=Array.isArray(res.data?.data)?res.data.data:Array.isArray(res.data)?res.data:[];const found=list.find(v=>Number(v.courseId)===Number(course.value.id));enrollmentStatus.value=found?(found.status==='ACTIVE'?'ACTIVE':'PENDING'):'NONE'}catch{enrollmentStatus.value='NONE'}}
 function formatLocalDate(date){const year=date.getFullYear(),month=String(date.getMonth()+1).padStart(2,'0'),day=String(date.getDate()).padStart(2,'0');return `${year}-${month}-${day}`}
 function recommendedDeliveryDate(){const days=Number.parseInt(specs.value.deliveryDays,10)||0;const date=new Date();date.setDate(date.getDate()+days);return formatLocalDate(date)}
 function lockPage(){bodyOverflowBeforeModal=document.body.style.overflow;document.body.style.overflow='hidden'}
 function unlockPage(){document.body.style.overflow=bodyOverflowBeforeModal}
-function openOrderModal(){modalError.value='';enrollError.value='';orderForm.quantity=1;orderForm.deliveryDate=recommendedDeliveryDate();orderForm.deliveryPlace=specs.value.deliveryPlace||'';orderForm.notes='';orderForm.contactName='';orderForm.contactPhone='';focusedElementBeforeModal=document.activeElement;lockPage();showOrderModal.value=true;nextTick(()=>orderQuantityInput.value?.focus())}
-function closeOrderModal(){if(enrolling.value)return;showOrderModal.value=false;modalError.value='';unlockPage();nextTick(()=>focusedElementBeforeModal?.focus())}
+function resetFieldErrors(){Object.keys(fieldErrors).forEach(key=>{fieldErrors[key]=''})}
+function clearFieldError(field){fieldErrors[field]='';if(!Object.values(fieldErrors).some(Boolean))modalError.value=''}
+function openOrderModal(){modalError.value='';resetFieldErrors();enrollError.value='';orderForm.quantity=1;orderForm.deliveryDate=recommendedDeliveryDate();orderForm.deliveryPlace='';orderForm.notes='';orderForm.contactName='';orderForm.contactPhone='';focusedElementBeforeModal=document.activeElement;lockPage();showOrderModal.value=true;nextTick(()=>orderQuantityInput.value?.focus())}
+function closeOrderModal(){if(enrolling.value)return;showOrderModal.value=false;modalError.value='';resetFieldErrors();unlockPage();nextTick(()=>focusedElementBeforeModal?.focus())}
 function handleEscape(event){if(event.key==='Escape'&&showOrderModal.value)closeOrderModal()}
-function validateOrder(){if(!Number.isInteger(Number(orderForm.quantity))||Number(orderForm.quantity)<1)return '발주 수량은 1 이상인 정수로 입력해 주세요.';if(!orderForm.deliveryDate)return '희망 납품일을 선택해 주세요.';if(orderForm.deliveryDate<minimumDeliveryDate.value)return '희망 납품일은 오늘 이후로 선택해 주세요.';if(!orderForm.deliveryPlace.trim())return '납품 장소를 입력해 주세요.';if(!orderForm.contactName.trim())return '담당자명을 입력해 주세요.';if(!orderForm.contactPhone.trim())return '담당자 연락처를 입력해 주세요.';return ''}
-function showOrderSuccess(){orderSuccessMessage.value='발주가 완료되었습니다.';clearTimeout(successTimer);successTimer=setTimeout(()=>{orderSuccessMessage.value=''},3500)}
+function sanitizePhone(event){
+  const digits=event.target.value.replace(/\D/g,'').slice(0,11)
+  const formatted=digits.length<=3?digits:digits.length<=7?`${digits.slice(0,3)}-${digits.slice(3)}`:`${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`
+  event.target.value=formatted
+  orderForm.contactPhone=formatted
+  clearFieldError('contactPhone')
+}
+function validateOrder(){
+  resetFieldErrors()
+  if(!Number.isInteger(Number(orderForm.quantity))||Number(orderForm.quantity)<1)fieldErrors.quantity='1 이상의 정수로 입력해 주세요.'
+  if(!orderForm.deliveryDate)fieldErrors.deliveryDate='희망 납품일을 선택해 주세요.'
+  else if(orderForm.deliveryDate<minimumDeliveryDate.value)fieldErrors.deliveryDate='오늘 이후 날짜를 선택해 주세요.'
+  if(!orderForm.deliveryPlace.trim())fieldErrors.deliveryPlace='실제 배송지를 입력해 주세요.'
+  if(!orderForm.contactName.trim())fieldErrors.contactName='담당자명을 입력해 주세요.'
+  if(!orderForm.contactPhone.trim())fieldErrors.contactPhone='연락처를 입력해 주세요.'
+  else if(!/^0\d{1,2}-?\d{3,4}-?\d{4}$/.test(orderForm.contactPhone))fieldErrors.contactPhone='숫자와 하이픈으로 정확히 입력해 주세요.'
+  const firstInvalid=Object.keys(fieldErrors).find(key=>fieldErrors[key])
+  if(!firstInvalid)return true
+  modalError.value='필수 입력값을 확인해 주세요.'
+  const inputRefs={quantity:orderQuantityInput,deliveryDate:orderDeliveryDateInput,deliveryPlace:orderDeliveryPlaceInput,contactName:orderContactNameInput,contactPhone:orderContactPhoneInput}
+  nextTick(()=>inputRefs[firstInvalid]?.value?.focus())
+  return false
+}
 async function handlePrimaryAction(){enrollError.value='';if(enrollmentStatus.value==='ACTIVE')return router.push('/enrollments');if(!course.value?.id||isInstructor.value)return;openOrderModal()}
-async function submitOrder(){modalError.value=validateOrder();if(modalError.value||!course.value?.id)return;enrolling.value=true;const orderRequest={courseId:course.value.id,quantity:Number(orderForm.quantity),unit:specs.value.unit||'개',deliveryDate:orderForm.deliveryDate,deliveryPlace:orderForm.deliveryPlace.trim(),notes:orderForm.notes.trim(),contactName:orderForm.contactName.trim(),contactPhone:orderForm.contactPhone.trim()};try{if(auth.isDemo){addDemoEnrollment(course.value,{...orderRequest,estimatedTotal:estimatedTotal.value});enrollmentStatus.value='ACTIVE'}else{await enrollmentApi.enroll(orderRequest);enrollmentStatus.value='PENDING'}showOrderModal.value=false;unlockPage();showOrderSuccess()}catch(e){modalError.value=e.response?.data?.message||'견적·발주 요청에 실패했습니다.'}finally{enrolling.value=false}}
+async function submitOrder(){if(!validateOrder()||!course.value?.id)return;enrolling.value=true;const orderRequest={courseId:course.value.id,quantity:Number(orderForm.quantity),unit:specs.value.unit||'개',deliveryDate:orderForm.deliveryDate,deliveryPlace:orderForm.deliveryPlace.trim(),notes:orderForm.notes.trim(),contactName:orderForm.contactName.trim(),contactPhone:orderForm.contactPhone.trim()};try{if(auth.isDemo){addDemoEnrollment(course.value,{...orderRequest,estimatedTotal:estimatedTotal.value});enrollmentStatus.value='ACTIVE'}else{await enrollmentApi.enroll(orderRequest);enrollmentStatus.value='PENDING'}showOrderModal.value=false;unlockPage();await router.push('/enrollments')}catch(e){modalError.value=e.response?.data?.message||'견적·발주 요청에 실패했습니다.'}finally{enrolling.value=false}}
 onMounted(async()=>{document.addEventListener('keydown',handleEscape);await courseStore.fetchCourse(route.params.id);await loadStatus()})
-onBeforeUnmount(()=>{document.removeEventListener('keydown',handleEscape);clearTimeout(successTimer);if(showOrderModal.value)unlockPage()})
+onBeforeUnmount(()=>{document.removeEventListener('keydown',handleEscape);if(showOrderModal.value)unlockPage()})
 </script>
 
 <style scoped>
@@ -159,6 +184,8 @@ onBeforeUnmount(()=>{document.removeEventListener('keydown',handleEscape);clearT
 .modal-backdrop{background:rgba(20,26,31,.56)}
 .order-modal{box-shadow:0 24px 70px rgba(20,26,31,.24)}
 .form-grid input:focus,.form-grid textarea:focus{border-color:var(--color-accent);box-shadow:0 0 0 3px var(--color-primary-light)}
+.form-grid label.invalid input,.form-grid label.invalid textarea{border-color:#dc6464;background:#fffafa;box-shadow:0 0 0 3px rgba(220,100,100,.1)}
+.field-error{display:block;margin-top:6px;color:#b42318;font-size:10px;font-weight:600;line-height:1.35}
 .quote-summary{border-color:#d4eaf6;background:#f4faff}
 .success-toast{border-color:#cae4d5;background:#f1f8f4;color:#355f4d}
 .success-toast b{background:var(--color-success)}

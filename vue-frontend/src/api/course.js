@@ -13,11 +13,19 @@ export const courseApi = {
     return api.get(`/api/courses/${id}`)
   },
 
+  getMine() {
+    return api.get('/api/courses/my')
+  },
+
   create(data) {
     return api.post('/api/courses', data)
   },
 
   update(id, data) {
     return api.put(`/api/courses/${id}`, data)
+  },
+
+  updateStatus(id, status) {
+    return api.patch(`/api/courses/${id}/status`, { status })
   }
 }

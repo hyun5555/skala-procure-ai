@@ -132,6 +132,10 @@ public class Course {
         this.enrollmentCount++;
     }
 
+    public void updateStatus(Status status) {
+        this.status = status;
+    }
+
     /**
      * 발주가 취소되면 거래건수를 되돌린다.
      * 기획안의 누적 거래건수에 그대로 대응하는 값이라 취소분이 남아 있으면 지표가 부풀려진다.

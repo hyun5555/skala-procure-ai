@@ -39,13 +39,21 @@ const DEMO_COURSES = [
 
 export function getDemoCourses() {
   const added = JSON.parse(sessionStorage.getItem('demo_courses') || '[]')
-  return [...added, ...DEMO_COURSES]
+  const statuses = JSON.parse(sessionStorage.getItem('demo_course_statuses') || '{}')
+  return [...added, ...DEMO_COURSES].map(course => ({ ...course, status: statuses[String(course.id)] || course.status }))
 }
 
 export function addDemoCourse(course) {
   const added = JSON.parse(sessionStorage.getItem('demo_courses') || '[]')
   added.unshift(course)
   sessionStorage.setItem('demo_courses', JSON.stringify(added))
+}
+
+export function updateDemoCourseStatus(courseId, status) {
+  const statuses = JSON.parse(sessionStorage.getItem('demo_course_statuses') || '{}')
+  statuses[String(courseId)] = status
+  sessionStorage.setItem('demo_course_statuses', JSON.stringify(statuses))
+  return status
 }
 
 export function getDemoEnrollments() {

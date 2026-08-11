@@ -142,7 +142,10 @@ export function evaluateCourse(course, criteria) {
   const budgetMatch = !budget || totalPrice <= budget
   const maxDeliveryDays = Number(criteria.maxDeliveryDays || 0)
   const deliveryMatch = !maxDeliveryDays || specs.deliveryDaysValue === null || specs.deliveryDaysValue <= maxDeliveryDays
-  const certificationMatch = !criteria.certification || includesNormalized(specs.certification, criteria.certification)
+  const requestedCertifications = Array.isArray(criteria.certifications)
+    ? criteria.certifications
+    : criteria.certification ? [criteria.certification] : []
+  const certificationMatch = requestedCertifications.every(certification => includesNormalized(specs.certification, certification))
   const excellentMatch = !criteria.excellentOnly || specs.excellent === 'Y'
   const masMatch = !criteria.masOnly || specs.mas === 'Y'
   const eligible = productMatch && detailMatch && specificationMatch && keywordMatch && companyTypeMatch && regionMatch && budgetMatch && deliveryMatch && certificationMatch && excellentMatch && masMatch

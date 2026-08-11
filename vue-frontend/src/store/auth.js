@@ -47,6 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
     sessionStorage.removeItem('user')
     sessionStorage.removeItem('demo_mode')
     sessionStorage.removeItem('demo_courses')
+    sessionStorage.removeItem('demo_course_statuses')
     sessionStorage.removeItem('demo_enrollments')
     sessionStorage.removeItem('order_requests')
     isDemo.value = false

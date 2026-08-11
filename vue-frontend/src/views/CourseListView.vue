@@ -24,8 +24,12 @@
           <label><span>최대 납품일수</span><select v-model.number="criteria.maxDeliveryDays"><option :value="null">전체</option><option v-for="day in deliveryDayOptions" :key="day" :value="day">{{ day }}일 이내</option></select></label>
           <label><span>필요 수량</span><input v-model.number="criteria.quantity" type="number" min="1" placeholder="100" /></label>
           <label><span>총 예산</span><div class="input-unit"><input v-model.number="criteria.budget" type="number" min="0" placeholder="50,000,000" /><em>원</em></div></label>
-          <label><span>인증 키워드</span><input v-model.trim="criteria.certification" placeholder="예: KS, 여성기업" /></label>
-          <div class="toggle-group"><label><input v-model="criteria.masOnly" type="checkbox" /> MAS 등록</label><label><input v-model="criteria.excellentOnly" type="checkbox" /> 우수제품</label></div>
+          <fieldset class="certification-group">
+            <legend>인증 및 등록 조건</legend>
+            <label v-for="item in certificationOptions" :key="item"><input v-model="criteria.certifications" type="checkbox" :value="item" /> {{ item }}</label>
+            <label><input v-model="criteria.masOnly" type="checkbox" /> MAS 등록</label>
+            <label><input v-model="criteria.excellentOnly" type="checkbox" /> 우수제품</label>
+          </fieldset>
           <button class="match-button" type="submit"><span>조건 분석 및 매칭</span><small>필수조건 필터 + 다기준 점수화</small></button>
         </form>
       </section>
@@ -69,10 +73,11 @@ import { deliveryDayOptions, evaluateCourse, productOptions } from '@/utils/proc
 const courseStore = useCourseStore()
 const auth = useAuthStore()
 const hasMatched = ref(false)
-const criteria = reactive({ product: '전체', detailProduct: '', specification: '전체', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, certification: '', excellentOnly: false, masOnly: false })
+const criteria = reactive({ product: '전체', detailProduct: '', specification: '전체', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, certifications: [], excellentOnly: false, masOnly: false })
 const loading = computed(() => courseStore.loading)
 const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
 const specificationOptions = ['소형', '중형', '대형', '주문 규격']
+const certificationOptions = ['KS', '여성기업', '장애인기업', '창업기업', '품질보증조달물품']
 
 const displayCourses = computed(() => {
   const courses = Array.isArray(courseStore.courses) ? courseStore.courses : []
@@ -82,7 +87,7 @@ const displayCourses = computed(() => {
 
 function runMatching() { hasMatched.value = true }
 function resetMatching() {
-  Object.assign(criteria, { product: '전체', detailProduct: '', specification: '전체', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, certification: '', excellentOnly: false, masOnly: false })
+  Object.assign(criteria, { product: '전체', detailProduct: '', specification: '전체', keyword: '', supplyRegions: [], maxDeliveryDays: null, quantity: null, budget: null, certifications: [], excellentOnly: false, masOnly: false })
   hasMatched.value = false
 }
 watch(() => criteria.product, () => { criteria.specification = '전체' })
@@ -113,9 +118,10 @@ onMounted(() => courseStore.fetchCourses())
 .match-button { height:46px; padding:0 18px; border-radius:9px; color:#fff; background:var(--color-primary); display:flex; flex-direction:column; align-items:flex-start; justify-content:center; }
 .match-button span { font-size:13px; font-weight:700; }
 .match-button small { font-size:9px; opacity:.7; }
-.toggle-group { height:46px; display:flex; align-items:center; gap:10px; padding:0 11px; border:1px solid var(--color-border); border-radius:9px; }
-.toggle-group label { display:flex; flex-direction:row; align-items:center; gap:5px; font-size:10px; color:var(--color-text-secondary); }
-.toggle-group input { width:14px; height:14px; }
+.certification-group { grid-column:span 2;min-height:46px;display:flex;align-content:center;align-items:center;gap:7px 11px;flex-wrap:wrap;padding:7px 11px;border:1px solid var(--color-border);border-radius:9px; }
+.certification-group legend { padding:0 5px;font-size:10px;font-weight:700;color:var(--color-text-secondary); }
+.certification-group label { display:flex;flex-direction:row;align-items:center;gap:5px;font-size:10px;color:var(--color-text-secondary);white-space:nowrap; }
+.certification-group input { width:14px;height:14px;accent-color:var(--color-accent-dark); }
 .result-header { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:18px; }
 .score-legend { font-size:10px; color:var(--color-text-muted); padding:9px 12px; border:1px solid var(--color-border); border-radius:8px; background:#fff; }
 .score-legend b { color:var(--color-primary); margin-right:7px; }
@@ -126,7 +132,7 @@ onMounted(() => courseStore.fetchCourses())
 .empty-state span { font-weight:700; }
 .empty-state p { margin:7px 0 18px; color:var(--color-text-muted); font-size:13px; }
 @media(max-width:1000px){.condition-form{grid-template-columns:repeat(3,1fr)}.course-grid,.loading-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:680px){.main-content{padding:28px 16px}.page-heading{align-items:flex-start;flex-direction:column}.condition-form{grid-template-columns:1fr}.course-grid,.loading-grid{grid-template-columns:1fr}.result-header{align-items:flex-start;flex-direction:column}.score-legend{line-height:1.5}}
+@media(max-width:680px){.main-content{padding:28px 16px}.page-heading{align-items:flex-start;flex-direction:column}.condition-form{grid-template-columns:1fr}.certification-group{grid-column:auto}.course-grid,.loading-grid{grid-template-columns:1fr}.result-header{align-items:flex-start;flex-direction:column}.score-legend{line-height:1.5}}
 .eyebrow,.score-legend b { color:var(--color-accent-dark); }
 .condition-form input:focus,.condition-form select:focus { border-color:var(--color-accent); box-shadow:0 0 0 3px var(--color-primary-light); }
 </style>

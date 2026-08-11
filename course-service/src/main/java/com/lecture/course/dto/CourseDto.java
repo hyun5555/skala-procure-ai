@@ -65,6 +65,15 @@ public class CourseDto {
         private LocalDate contractEnd;
     }
 
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class StatusRequest {
+        @NotNull(message = "품목 상태는 필수입니다")
+        private Course.Status status;
+    }
+
     // 강의 응답
     @Getter
     @NoArgsConstructor

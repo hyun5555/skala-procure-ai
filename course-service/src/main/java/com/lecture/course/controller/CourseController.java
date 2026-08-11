@@ -42,6 +42,24 @@ public class CourseController {
         );
     }
 
+    @GetMapping("/my")
+    public ResponseEntity<CourseDto.ApiResponse<List<CourseDto.CourseResponse>>> getMyCourses(
+            @RequestHeader("X-User-Id") Long instructorId) {
+        return ResponseEntity.ok(
+                CourseDto.ApiResponse.success(courseService.getCoursesByInstructor(instructorId))
+        );
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<CourseDto.ApiResponse<CourseDto.CourseResponse>> updateCourseStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody CourseDto.StatusRequest request,
+            @RequestHeader("X-User-Id") Long instructorId) {
+        return ResponseEntity.ok(
+                CourseDto.ApiResponse.success(courseService.updateCourseStatus(id, instructorId, request.getStatus()))
+        );
+    }
+
     /**
      * PUT /courses/{id} - 품목 수정 (등록한 공급기업만)
      * Gateway가 전달한 X-User-Id 로 등록자를 대조한다

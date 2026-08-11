@@ -78,10 +78,13 @@
               </aside>
             </div>
 
-            <p class="analytics-note">
-              품목별 거래 비중은 현재 등록된 누적 거래건수 기준이며, 품질검사 데이터가 연동되면 불량률 분석으로 확장할 수 있습니다.
-            </p>
+            <div class="analytics-footer">
+              <p class="analytics-note">품목별 거래 비중은 현재 등록된 누적 거래건수 기준이며, 품질검사 데이터가 연동되면 불량률 분석으로 확장할 수 있습니다.</p>
+              <router-link to="/courses/new" class="btn btn-primary catalog-register-button">+ 조달 품목 등록</router-link>
+            </div>
           </section>
+
+          <p v-if="statusError" class="status-error" role="alert">{{ statusError }}</p>
 
           <div v-if="instructorLoading" class="loading-row instructor-loading">
             <div v-for="i in 3" :key="i" class="skeleton-card">
@@ -104,12 +107,11 @@
                   <h4 class="course-title">{{ course.title }}</h4>
                   <p class="course-desc">{{ course.description || '설명이 없습니다.' }}</p>
                 </div>
-                <span
-                  class="status-badge"
-                  :class="course.status === 'ACTIVE' ? 'status-active' : 'status-inactive'"
-                >
-                  {{ course.status === 'ACTIVE' ? '거래 가능' : '비활성' }}
-                </span>
+                <label class="availability-control" :class="{ soldout: course.status !== 'ACTIVE' }">
+                  <span class="availability-copy"><b>{{ course.status === 'ACTIVE' ? '거래 가능' : '품절' }}</b><small>{{ course.status === 'ACTIVE' ? '구매기업에 노출 중' : '거래 및 노출 중지' }}</small></span>
+                  <input type="checkbox" :checked="course.status === 'ACTIVE'" :disabled="statusUpdating[course.id]" :aria-label="`${course.title} 거래 가능 상태`" @change="toggleCourseStatus(course, $event.target.checked)">
+                  <span class="switch-track" aria-hidden="true"><i></i></span>
+                </label>
               </div>
 
               <div class="course-meta-grid">
@@ -145,9 +147,10 @@
             {{ instructorError }}
           </p>
 
-          <p v-else class="empty-text">
-            아직 등록한 조달 품목이 없습니다.
-          </p>
+          <div v-else class="empty-catalog">
+            <p class="empty-text">아직 등록한 조달 품목이 없습니다.</p>
+            <router-link to="/courses/new" class="btn btn-primary">첫 조달 품목 등록</router-link>
+          </div>
         </section>
       </main>
     </div>
@@ -163,7 +166,7 @@ import AppFooter from '@/components/AppFooter.vue'
 import { useAuthStore } from '@/store/auth.js'
 import { courseApi } from '@/api/course.js'
 import { useCourseStore } from '@/store/course.js'
-import { getDemoCourses } from '@/data/demo.js'
+import { getDemoCourses, updateDemoCourseStatus } from '@/data/demo.js'
 
 const auth = useAuthStore()
 const courseStore = useCourseStore()
@@ -174,6 +177,8 @@ const isInstructor = computed(() => auth.user?.role === 'INSTRUCTOR')
 const myCourses = ref([])
 const instructorLoading = ref(true)
 const instructorError = ref('')
+const statusError = ref('')
+const statusUpdating = ref({})
 
 const totalEnrollmentCount = computed(() =>
   myCourses.value.reduce((sum, course) => {
@@ -224,6 +229,23 @@ function formatPrice(price) {
   return `${value.toLocaleString()}원`
 }
 
+async function toggleCourseStatus(course, isActive) {
+  const nextStatus = isActive ? 'ACTIVE' : 'INACTIVE'
+  const previousStatus = course.status
+  statusError.value = ''
+  statusUpdating.value = { ...statusUpdating.value, [course.id]: true }
+  course.status = nextStatus
+  try {
+    if (auth.isDemo) updateDemoCourseStatus(course.id, nextStatus)
+    else await courseApi.updateStatus(course.id, nextStatus)
+  } catch (error) {
+    course.status = previousStatus
+    statusError.value = error.response?.data?.message || '품목 거래 상태를 변경하지 못했습니다.'
+  } finally {
+    statusUpdating.value = { ...statusUpdating.value, [course.id]: false }
+  }
+}
+
 /**
  * course 객체에서 강사 식별자 추출
  */
@@ -256,7 +278,7 @@ async function loadInstructorCourses() {
       return
     }
 
-    const res = await courseApi.getCourses()
+    const res = await courseApi.getMine()
     console.log('[MyPage] course list response:', res.data)
 
     let courses = []
@@ -558,13 +580,23 @@ onMounted(loadInstructorCourses)
 .legend-track { grid-column: 2 / 4; height: 5px; margin-top: 5px; background: var(--color-bg-tertiary); border-radius: 5px; overflow: hidden; }
 .legend-track i { display: block; height: 100%; border-radius: inherit; }
 
-.analytics-note {
+.analytics-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
   padding-top: 13px;
   border-top: 1px solid var(--color-border);
+}
+
+.analytics-note {
+  flex: 1;
   color: var(--color-text-muted);
   font-size: 9px;
   line-height: 1.5;
 }
+
+.catalog-register-button { flex-shrink:0;padding:9px 14px;font-size:11px; }
 
 .instructor-course-list {
   display: grid;
@@ -619,6 +651,20 @@ onMounted(loadInstructorCourses)
   background: #f3f4f6;
   color: #6b7280;
 }
+
+.availability-control { display:flex;align-items:center;gap:11px;flex-shrink:0;padding:8px 10px;border:1px solid #cfe5d7;border-radius:11px;background:#f4faf6;cursor:pointer;transition:var(--transition); }
+.availability-control.soldout { border-color:#e0e3e5;background:#f6f7f8; }
+.availability-copy { display:flex;min-width:82px;flex-direction:column;text-align:right; }
+.availability-copy b { color:#277258;font-size:11px; }
+.availability-copy small { margin-top:2px;color:var(--color-text-muted);font-size:8px; }
+.availability-control.soldout .availability-copy b { color:#68727a; }
+.availability-control input { position:absolute;width:1px;height:1px;opacity:0;pointer-events:none; }
+.switch-track { position:relative;width:42px;height:23px;flex-shrink:0;border-radius:999px;background:#a8afb4;transition:background .2s ease; }
+.switch-track i { position:absolute;left:3px;top:3px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.18);transition:transform .2s ease; }
+.availability-control input:checked + .switch-track { background:#65b58b; }
+.availability-control input:checked + .switch-track i { transform:translateX(19px); }
+.availability-control input:focus-visible + .switch-track { outline:3px solid var(--color-primary-light);outline-offset:2px; }
+.availability-control:has(input:disabled) { cursor:wait;opacity:.65; }
 
 .course-meta-grid {
   display: grid;
@@ -676,6 +722,9 @@ onMounted(loadInstructorCourses)
   font-size: 14px;
 }
 
+.status-error { margin-bottom:14px;padding:10px 12px;border:1px solid #efcccc;border-radius:9px;background:#fff6f6;color:#a53b3b;font-size:11px;font-weight:600; }
+.empty-catalog { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px;border:1px dashed var(--color-border-hover);border-radius:var(--radius-lg);background:#fff; }
+
 @keyframes shimmer {
   to {
     background-position: -200% 0;
@@ -710,5 +759,9 @@ onMounted(loadInstructorCourses)
   .summary-cards {
     grid-template-columns: 1fr;
   }
+
+  .analytics-footer { align-items:flex-start;flex-direction:column; }
+  .catalog-register-button { width:100%;justify-content:center; }
+  .availability-control { width:100%;justify-content:space-between; }
 }
 </style>
