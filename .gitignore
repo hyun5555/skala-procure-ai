@@ -44,3 +44,6 @@ init-db/Data.full.csv
 # 파이썬 바이트코드 캐시. 로컬 실행 산출물이라 커밋하지 않는다
 __pycache__/
 *.pyc
+
+# 실행 검증의 DB 백업·테스트 계정·로컬 기록
+/.local/
