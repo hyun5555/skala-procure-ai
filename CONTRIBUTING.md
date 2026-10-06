@@ -1,45 +1,14 @@
-# 기여 방법
+# 개인 개발 방법
 
-**규칙은 [`CLAUDE.md`](CLAUDE.md)에 있다.** 수정 금지 구역, Sprint 규칙, Git 규칙, 알려진 오탐이 모두 거기 있다. 이 문서와 내용이 다르면 `CLAUDE.md`가 맞다.
+개발 규칙의 원본은 [`AGENTS.md`](AGENTS.md)다. 이 문서는 시작 절차만 안내한다.
 
-실행 절차는 [`readme.md`](readme.md)를 본다.
+1. [`readme.md`](readme.md)의 실행 조건과 [`docs/constraints.md`](docs/constraints.md)의 현행 호환성을 확인한다.
+2. `./scripts/setup-git-hooks`를 실행한다. `main` 직접 push 방지는 계속 유지한다.
+3. 개인 저장소를 `origin`으로 연결했는지 확인하고 `codex/<작업명>` 브랜치를 만든다.
+4. [`docs/development/backlog.md`](docs/development/backlog.md)의 한 항목을 골라 구현·검증·문서를 함께 완료한다.
+5. 개인 개발에서는 팀원 승인을 기다릴 필요가 없다. PR에는 동작 변화, 검증, 알려진 한계를 적는다.
 
-## 처음 한 번만
+복잡한 리팩토링의 기준은 [`기반 설계`](docs/architecture/refactoring-foundation.md), 에이전트 활용법은 [`역할별 작업 지침`](docs/development/agents.md)에 있다.
+원격 공개 이전은 [`저장소 이전 가이드`](docs/development/repository-migration.md)를 따른다.
 
-```bash
-./scripts/setup-git-hooks
-```
-
-`main`에 직접 push하는 것을 막는 hook을 활성화한다. **실행하지 않으면 동작하지 않는다.**
-
-## 시작하기 전에
-
-이 저장소에는 **바꾸면 즉시 깨지는 것**이 다섯 개 있다. 근거는 [`docs/constraints.md`](docs/constraints.md)에 있고, 일부는 CI가 자동으로 막는다.
-
-| 하지 않는다 | 어기면 |
-| --- | --- |
-| API 경로(`/api/...`)를 바꾸지 않는다 | 프론트에서 즉시 404 |
-| 프론트엔드 포트 3000을 바꾸지 않는다 | 로그인이 400으로 거부 |
-| `auth-server` · `api-gateway` 소스를 만들지 않는다 | 이미지만 제공되어 의미가 없다 |
-| 제3의 사용자 역할을 만들지 않는다 | auth-server가 role 2종을 고정 |
-| 같은 사용자가 같은 항목을 두 번 신청하는 흐름을 만들지 않는다 | DB 유일 제약 위반 |
-| `infra-images.tar`를 커밋하지 않는다 | 343MB로 GitHub 한도 초과 |
-
-## 사람이 지켜야 하는 것
-
-자동 검사가 잡아주지 못하는 것들이다.
-
-- `main`에 직접 push하지 않는다.
-- 하나의 PR은 하나의 목적만 다룬다.
-- LLM API 키를 포함한 비밀값을 커밋하지 않는다.
-- **검증하지 못한 항목을 숨기지 않는다.** 이유와 후속 작업을 PR에 적는다.
-- 카테고리 라벨을 바꿨으면 관련 다섯 파일을 함께 확인한다. 목록은 [`docs/constraints.md`](docs/constraints.md)에 있다.
-- Sprint 범위를 넘는 작업이 필요해 보이면 범위를 넓히지 않고 팀에 알린다.
-
-## 막혔을 때 질문하는 법
-
-실습 가이드가 정한 방식이다.
-
-> "Eureka가 왜 이렇게 짜여 있나요?" 처럼 인프라 내부를 묻지 말고, "이 API에 이 요청을 보냈는데 왜 이런 응답이 오나요?" 처럼 본인이 실제로 호출한 지점으로 좁혀서 질문한다.
-
-질문 전에 [`CLAUDE.md`](CLAUDE.md)의 `알려진 오탐` 표를 확인한다. 장애처럼 보이지만 정상인 항목이 정리되어 있다.
+기존 팀 실습의 기여 지침은 [`기록`](docs/history/team-project/CONTRIBUTING.legacy.md)으로만 보존한다.

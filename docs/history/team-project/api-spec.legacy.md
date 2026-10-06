@@ -1,6 +1,4 @@
-# 기존 API 명세
-
-개인 개발 전환 기준은 `980da07`이다. 이 문서는 기존 API 참고 자료이며 팀 Sprint는 [과거 기록](../history/team-project/api-spec.legacy.md)에 보존한다. 문서와 코드의 점수 정책 차이는 [기반 설계](../architecture/refactoring-foundation.md)에 기록했다. 신규 parse/match API는 아직 구현하지 않았다.
+# API 명세
 
 프론트엔드가 호출하는 계약이다. 실제 구현된 컨트롤러와 DTO에서 추출했다.
 

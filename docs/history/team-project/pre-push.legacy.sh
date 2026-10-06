@@ -1,12 +1,10 @@
 #!/bin/sh
 
 protected_ref="refs/heads/main"
-empty_sha="0000000000000000000000000000000000000000"
 
 while read -r local_ref local_sha remote_ref remote_sha
 do
-  # 독립 저장소의 최초 main 생성은 허용한다. 기존 main 직접 갱신은 차단한다.
-  if [ "$remote_ref" = "$protected_ref" ] && [ "$remote_sha" != "$empty_sha" ]; then
+  if [ "$remote_ref" = "$protected_ref" ]; then
     printf '%s\n' "ERROR: main 브랜치로 직접 push하는 것은 hook이 막습니다." >&2
     printf '%s\n' "작업 브랜치를 만들고 Pull Request로 병합하세요." >&2
     exit 1

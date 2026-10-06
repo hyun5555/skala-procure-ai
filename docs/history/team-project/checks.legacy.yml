@@ -5,21 +5,11 @@ on:
   push:
     branches: [main]
 
-# 개인 개발에서도 현행 교육 런타임의 호환성은 검증한다.
-# 인증·게이트웨이 교체가 검증되면 이 guard와 docs/constraints.md를 함께 갱신한다.
-
-permissions:
-  contents: read
+# 검사는 "앱이 깨지는 것"만 막는다.
+# 브랜치 이름과 PR 제목 형식은 CLAUDE.md 의 규칙으로만 두고 CI 로 막지 않는다.
+# 2시간 Sprint 에서 제목 오타로 merge 가 막히는 비용이 규칙이 주는 이득보다 크다.
 
 jobs:
-  documents:
-    name: Documentation and history
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check links and preserved team records
-        run: python3 scripts/check-docs.py
-
   guards:
     name: Guards
     runs-on: ubuntu-latest
@@ -91,6 +81,9 @@ jobs:
         working-directory: vue-frontend
         run: npm run build
 
-# 현행 CI는 문서·호환성·프론트 빌드를 다룬다.
-# Java/Python 변경은 해당 서비스 테스트 결과를 기록한다.
-# 서비스별 자동 테스트와 의존성 lock 정리는 개인 백로그에서 추가한다.
+# Gradle 빌드 검사는 넣지 않았다.
+# 서비스 5개를 매 PR 마다 빌드하면 Actions 사용량이 빠르게 소진되고,
+# 이 실습에서 자바 변경은 예외적인 경우로 제한하기 때문이다.
+# 자바를 고친 PR 은 작성자가 로컬에서
+#   docker compose up -d --build <서비스명>
+# 으로 확인하고 그 결과를 PR 본문에 남긴다.
