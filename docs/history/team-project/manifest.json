@@ -1,0 +1,58 @@
+{
+  "baseline_commit": "980da07edbc709e79713a1897b07e73145280336",
+  "captured_on": "2026-10-06",
+  "purpose": "팀 실습 문서의 원문 보존; 현재 에이전트 지침 아님",
+  "files": [
+    {
+      "source": "AGENTS.md",
+      "archive": "docs/history/team-project/AGENTS.legacy.md",
+      "sha256": "c221911106744b990e0120aed57893faf267cdaa5488c786af51eb0046466dbf"
+    },
+    {
+      "source": "CLAUDE.md",
+      "archive": "docs/history/team-project/CLAUDE.legacy.md",
+      "sha256": "0f834e5d053513bdefa247599bbb7e0bc08802752151865094cb1b7382ff7d72"
+    },
+    {
+      "source": "CONTRIBUTING.md",
+      "archive": "docs/history/team-project/CONTRIBUTING.legacy.md",
+      "sha256": "5fc579ddc245ae9b93caba277dc9236533dcb5b2cf063b105fa812e5dcc9b940"
+    },
+    {
+      "source": "readme.md",
+      "archive": "docs/history/team-project/readme.legacy.md",
+      "sha256": "791fbbd015d0b1e5d35b6cb22ea49936a405752bb8fa9d50f475d6f53b6328e1"
+    },
+    {
+      "source": "docs/product/overview.md",
+      "archive": "docs/history/team-project/overview.legacy.md",
+      "sha256": "dedaa297fe292f31e5e20a7a00d00442221ed3e8baf199a2ac602389b5ede2c8"
+    },
+    {
+      "source": "docs/constraints.md",
+      "archive": "docs/history/team-project/constraints.legacy.md",
+      "sha256": "012ba7743d8a77f97d979a8c544cbb453af5ed6fdee5200dafe355b6ac268779"
+    },
+    {
+      "source": "docs/spec/api-spec.md",
+      "archive": "docs/history/team-project/api-spec.legacy.md",
+      "sha256": "85d874098cbdc7dbbf27ab617374cac4af7bf98d08e6b456e1afa74a034ec09d"
+    },
+    {
+      "source": ".github/workflows/checks.yml",
+      "archive": "docs/history/team-project/checks.legacy.yml",
+      "sha256": "3dabafcaeb82663dd1f0e0aa9e915eb01923563a08a4bbf4d66b39ff4cd0c88c"
+    },
+    {
+      "source": ".github/pull_request_template.md",
+      "archive": "docs/history/team-project/pull-request-template.legacy.md",
+      "sha256": "2f050d4f12d38ddfe8379aeba22c1c71452f8e37d1018eda9ce6a72f7006729a"
+    },
+    {
+      "source": ".githooks/pre-push",
+      "archive": "docs/history/team-project/pre-push.legacy.sh",
+      "sha256": "f9305c450f88b4857444fe5a708099dd899ba4e2c6586b9ed1cf5495c20e597c"
+    }
+  ],
+  "workspace_start_commit": "731697999ccc1a050c9362a78308473d9ec5c0a8"
+}

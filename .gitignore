@@ -14,8 +14,12 @@ node_modules/
 dist/
 out/
 
-# 로컬 환경 값. LLM API 키 같은 실제 비밀값은 반드시 여기에 두고 커밋하지 않는다.
-# vue-frontend/.env 와 recommend-service/.env 는 강의에서 고정한 공개값이므로 커밋한다.
+# 새 로컬 환경 파일은 기본으로 제외한다. 이미 추적 중인 교육용 .env는 호환성을 유지한다.
+# 실제 API 키는 서버 환경변수로 전달한다. 예제에는 placeholder만 쓴다.
+.env
+.env.*
+!.env.example
+!.env.template
 .env.local
 *.env.local
 .env.*.local
