@@ -25,8 +25,6 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchUser() {
     try {
       const res = await authApi.getMe()
-      console.log('[AuthStore] /me response =', res.data)
-
       const userData = res?.data?.data ?? res?.data
 
       if (!userData || typeof userData !== 'object') {
@@ -34,8 +32,8 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       setUser(userData)
-    } catch (error) {
-      console.error('[AuthStore] 사용자 정보 조회 실패:', error)
+    } catch {
+      console.error('[AuthStore] 사용자 정보 조회 실패')
       logout(false)
     }
   }
@@ -100,8 +98,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function handleCallback(code) {
     const res = await authApi.exchangeCode(code)
-    console.log('[AuthStore] token response =', res.data)
-
     const token = res?.data?.access_token
 
     if (!token) {
