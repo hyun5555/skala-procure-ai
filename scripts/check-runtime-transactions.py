@@ -81,9 +81,9 @@ def check_order(course_id, expected_total, token, user_id):
     while True:
         orders = request("GET", "/api/enrollments/my", token=token)["data"]
         order = next(item for item in orders if item["courseId"] == course_id)
+        assert time.monotonic() < deadline, "SHIPPING timeout; inspect payment/Kafka before retrying"
         if order["status"] == "SHIPPING":
             break
-        assert time.monotonic() < deadline, "SHIPPING timeout; inspect payment/Kafka before retrying"
         time.sleep(1)
     assert order["userId"] == user_id
     assert order["orderRequest"]["quantity"] == 3 and order["orderRequest"]["unit"] == "개"

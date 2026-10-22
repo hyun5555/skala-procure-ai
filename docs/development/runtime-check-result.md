@@ -70,3 +70,13 @@ python3 scripts/check-runtime-transactions.py \
 실행마다 별도의 소수 단가 품목·발주·실습 결제를 한 건씩 추가한다. 기존 정수 발주는 조회만 한다. OAuth 로그인·JWT 매핑·401/403·카탈로그·금액·SHIPPING·거래건수 검사를 수행하고 토큰·비밀번호를 출력하지 않는다. 이 스크립트는 거래 데이터를 만들므로 일반 CI에서 자동 실행하지 않는다.
 
 실행 검증 스크립트와 `npm run build`가 통과했다. Vite의 기존 `__dirname` 비차단 경고는 남아 있다. Java 소스는 변경하지 않았고 이번 작업에서 Java 단위 테스트는 실행하지 않았다. 실제 PG 결제, 다른 컴퓨터의 새 DB 기동, 백업 복구, 품질 등록·DELIVERED는 이번 완료 범위가 아니다. 현재 로컬 서버는 검증 후 기동 상태로 유지한다.
+
+## 2026-10-22 제한 시간 판정 보완
+
+검증기의 `check_order`가 SHIPPING이면 기한 검사 전에 성공 처리하던 P2 문제를 수정했다. 응답을 받은 뒤 기한을 먼저 검사하므로, SHIPPING도 30초 미만에 관측해야 통과한다. 30초 이상인 응답은 상태와 관계없이 실패한다. 이 기한은 SHIPPING 관측 판정 기준이며 HTTP 연결을 정확히 30초에 중단하는 기능은 아니다. 개별 요청에는 기존 10초 소켓 타임아웃을 유지한다.
+
+[회귀 테스트](../../scripts/test_runtime_transactions.py)에서 시간·요청을 대체해 SHIPPING 29초 통과, SHIPPING 30초·31초 실패, PENDING 31초 실패를 확인한다. 수정 전에는 SHIPPING 30초·31초 사례가 실패를 검출했고, 수정 후에는 네 사례가 모두 통과한다. CI의 `Runtime checker tests`에서 아래 명령을 실행하며 실제 계정·거래 데이터는 생성하지 않는다.
+
+```sh
+python3 -m unittest discover -s scripts -p 'test_runtime_transactions.py' -v
+```
