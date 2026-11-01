@@ -1,7 +1,7 @@
 # AI 조달 개인 개발 프로젝트
 
 SKALA 팀 프로젝트를 기반으로 자연어 구매 조건 입력, 공급업체 비교, 근거 설명 기능을 확장한다.
-현재는 **개인 개발 기반과 로컬 거래 흐름 실행 검증을 완료하고 구매 조건 필터를 설계한 단계**다. 새 조건 필터와 AI 기능은 아직 구현하지 않았다.
+현재는 **개인 개발 기반·로컬 거래 흐름 검증과 구매 조건 순수 필터·테스트·CI 연결을 완료한 단계**다. 새 필터의 HTTP·화면 연결과 LLM 호출은 후속 작업이다.
 
 개인 개발 저장소는 [hyun5555/skala-procure-ai](https://github.com/hyun5555/skala-procure-ai)다.
 
@@ -17,7 +17,7 @@ SKALA 팀 프로젝트를 기반으로 자연어 구매 조건 입력, 공급업
 | --- | --- | --- |
 | 개인 개발 기반 | 완료 | 독립 public 저장소, 팀 기록 보존, 개인 에이전트 지침, 초기 구조 설계와 CI |
 | 1. 기존 실행 환경 확인 | 로컬 실행 검증 완료 | 기존 DB 보존, 로그인·품목 조회·발주·결제 금액과 SHIPPING 전환 확인 |
-| 2. 구매 조건과 필터 구현 | 설계 완료, 구현 대기 | 품명·전체 규격·단위·수량·예산·납기·인증과 상태·계약을 충족 / 불충족 / 확인 필요로 판정 |
+| 2. 구매 조건과 필터 구현 | 순수 필터·테스트·CI 구현 완료 | 품명·전체 규격·단위·수량·예산·납기·인증과 상태·계약을 충족 / 불충족 / 확인 필요로 판정 |
 | 추천 API·화면·AI 연결 | 후속 작업 | 신원·권한 확인 후 서버 매칭, 조건 확인 화면, 자연어 추출과 근거 설명 연결 |
 
 두 작업의 입력·결과 계약, 실행 명령, 장애 분류와 고정 검증 사례는 [상세 개발 설계](docs/architecture/runtime-and-criteria-design.md)에 있다.
@@ -32,9 +32,9 @@ SKALA 팀 프로젝트를 기반으로 자연어 구매 조건 입력, 공급업
 
 ### 2. 구매 조건과 필터 구현
 
-첫 기능 구현은 기존 `recommend-service`의 요청·결과 모델, 순수 필터 함수, 고정 사례 테스트와 CI 연결이다. 필터는 Docker·DB·LLM 호출 없이 검증할 수 있게 만든다.
+기존 `recommend-service`에 [요청·결과 모델](recommend-service/app/model/schemas.py), [순수 필터](recommend-service/app/service/matching.py), [고정 사례 테스트](recommend-service/tests/test_matching.py)를 추가했다. 필터는 Docker·DB·LLM 호출 없이 실행한다.
 
-| 판정 | 설계 기준 |
+| 판정 | 구현 기준 |
 | --- | --- |
 | 충족 `eligible` | 요청한 조건과 상태·계약을 모두 확인했고 만족함 |
 | 불충족 `ineligible` | 명확히 맞지 않는 조건이 하나 이상 있음; 미확인 조건이 함께 있어도 불충족 |
@@ -43,6 +43,21 @@ SKALA 팀 프로젝트를 기반으로 자연어 구매 조건 입력, 공급업
 규격은 길이·두께·등급을 포함해 전체 비교하고, 금액은 등록 단가와 수량으로 서버에서 계산한다. 납기·인증 누락을 충족으로 표시하지 않는다. 품목 소계 예산과 총예산을 구분하며 운임·세금이 불명확하면 총예산 충족을 확정하지 않는다.
 
 첫 필터는 기존 QCD·조건 점수의 산식을 유지하며 판정 근거를 반환한다. 공급지역·우수제품·MAS 조건 보완과 JWT 신원·권한 확인 이후 추천 API를 연결한다. 현재 등록 화면의 `공급지역코드`는 업체 소재지 선택값이므로 배송 가능 지역으로 사용하지 않는다.
+
+현재 테스트는 29개이며 금액 경계·전체 규격·별칭 충돌·계약 날짜·실제 시드/화면 형식을 포함한다. Python 3.12와 서비스의 고정 의존성을 사용하는 `Purchase criteria filter tests` CI job에서 같은 테스트를 실행한다.
+
+```bash
+python3 -m venv .local/matching-venv
+.local/matching-venv/bin/python -m pip install -r recommend-service/requirements.txt
+cd recommend-service
+../.local/matching-venv/bin/python -m unittest discover -s tests -p 'test_matching.py' -v
+```
+
+호출은 `match_courses(criteria, catalog_dicts, today)`다. `today`는 호출자가 서울 기준 `date`로 주입하며 결과는 품목 ID 오름차순의 `MatchResult` 목록이다. 소계는 금액 문자열이고 후보의 누락·모호한 정보는 검사별 사유·출처·원문과 함께 남긴다. 카탈로그 단가는 `Decimal`·정수·유효한 금액 문자열을 사용하며 float은 정밀도를 확정할 수 없어 확인 필요로 처리한다.
+
+### LLM 연결 방향
+
+**API로 조건 추출을 먼저 검증한 뒤 같은 한국어 사례로 로컬 모델을 비교**한다. 첫 API 후보는 `gpt-6-luna`, 품질 비교 후보는 `gpt-6.1-sol`, 로컬 후보는 Qwen3.5 4B·9B다. 모델 추천의 근거·비용·현재 Mac의 실행 선택·평가 기준은 [LLM 연동 계획](docs/architecture/llm-integration-plan.md)에 정리했다. 추출 → 사용자 확인 → 규칙 필터 순서를 유지하며 현재 모델 성능을 실측한 결과는 없다.
 
 ## 개발 안내
 
@@ -53,6 +68,7 @@ SKALA 팀 프로젝트를 기반으로 자연어 구매 조건 입력, 공급업
 | [제품 방향](docs/product/overview.md) | 현재 기반과 AI 확장 목표 |
 | [리팩토링 기반 설계](docs/architecture/refactoring-foundation.md) | 현행 구조·API 제안·이전 조건·완료 기준 |
 | [실행 환경·구매 조건 필터 설계](docs/architecture/runtime-and-criteria-design.md) | 첫 두 작업의 절차·입력·판정·검증·구현 파일 |
+| [LLM 연동 계획](docs/architecture/llm-integration-plan.md) | API 우선 검증, 모델·vLLM/MLX 비교, 초안 계약과 평가 기준 |
 | [ADR-0001](docs/architecture/decisions/0001-personal-development.md) | 초기 구조를 유지하는 결정과 대안 |
 | [개인 백로그](docs/development/backlog.md) | 다음에 구현할 작은 작업 |
 | [로컬 실행 검증 결과](docs/development/runtime-check-result.md) | DB 보존·실제 로그인·정수/소수 거래·권한 점검 결과와 재실행 명령 |
